@@ -1,13 +1,17 @@
-#	BSD 4.4 makefile for "priv"
-
 PROG=	priv
+
+BINMODE=4555
+BINOWN=	root
+BINDIR=	/usr/local/bin
+MANDIR=	/usr/local/man/cat
+
+# Ultrix compat stuff...
 .if exists(/usr/local/lib/libsyslog.a)
 CFLAGS+=-I/usr/local/include/local
 LDADD+=	-lsyslog
 .endif
-BINMODE=4555
-BINOWN=	root
-BINDIR=	/usr/local/bin
-NOMAN=	no way, man!
+.if exists(/usr/local/lib/libnetbsd.a)
+LDADD+=	-lnetbsd
+.endif
 
 .include <bsd.prog.mk>
