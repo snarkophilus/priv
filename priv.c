@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.8 1996/04/05 03:36:56 simonb Exp $
+/*	$Id: priv.c,v 1.9 1996/04/05 07:03:42 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.8 1996/04/05 03:36:56 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.9 1996/04/05 07:03:42 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -47,6 +47,7 @@ static char rcsid[] = "$Id: priv.c,v 1.8 1996/04/05 03:36:56 simonb Exp $";
 #define F_LOGLS		00010		/* do an 'ls' of the command run */
 #define F_LOGCWD	00020		/* log working directory */
 #define F_LOGCMD	00040		/* log full command name */
+#define F_LOGTTY	00100		/* log user's terminal */
 
 #ifdef __svr4__	/* Solaris 2 */
 # define index strchr
@@ -289,6 +290,17 @@ build_log_message(myname, argv, prog, flags)
 	int		left;
 
 	sprintf(log, "%s", myname);
+	if (flags & F_LOGTTY) {
+		char	*tty;
+
+		tty = ttyname(0);	/* XXX: stdin filedes */
+		if (!tty)
+			tty = "NOTTY";
+		if (strncmp(tty, "/dev/", 5) == 0)
+			tty += 5;
+		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
+		    " (%s)", tty);
+	}
 	if (flags & F_LOGCWD) {
 		char	*pwd;
 
