@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.14 1996/05/16 11:31:25 simonb Exp $
+/*	$Id: priv.c,v 1.15 1996/05/30 00:37:59 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.14 1996/05/16 11:31:25 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.15 1996/05/30 00:37:59 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -223,14 +223,14 @@ main(argc, argv, envp)
 	/* Check to see if the command was valid, and exit if not. */
 	if (!ok) {
 		if (suuser) {
-			fprintf(stderr, "%s: command not valid.\n", prog);
-			syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
-			    myfullname, newprog);
-		}
-		else {
 			fprintf(stderr, "%s: user not valid.\n", prog);
 			syslog(LOG_NOTICE, "%s: not ok: su to %s",
 			    myfullname, useras);
+		}
+		else {
+			fprintf(stderr, "%s: command not valid.\n", prog);
+			syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
+			    myfullname, newprog);
 		}
 		exit(1);
 		/* NOTREACHED */
