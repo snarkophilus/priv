@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.30 1997/02/19 05:04:01 lukem Exp $	*/
+/*	$Id: priv.c,v 1.31 1997/02/22 16:51:27 lukem Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -48,7 +48,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.30 1997/02/19 05:04:01 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.31 1997/02/22 16:51:27 lukem Exp $";
 #endif /* not lint */
 
 #include "priv.h"
@@ -89,12 +89,6 @@ main(int argc, char **argv, char **envp)
 	ok = log_malformed = 0;
 	newprog = argv[1];
 	realprog = NULL;
-	if (newprog != NULL) {
-		splitpath(newprog, &newprogdir, &newprogbase);
-		realprog = which(newprog);
-		if (realprog != NULL)
-			splitpath(realprog, &realprogdir, &realprogbase);
-	}
 
 	/* Check if we're running as su-<user> or su<user> */
 	suuser = NULL;
@@ -138,13 +132,28 @@ main(int argc, char **argv, char **envp)
 		fprintf(stderr, "usage: %s command [arg [...]]\n", progname);
 		exit(EXIT_VAL);
 	}
-	if (   suuser != NULL
-	    && ! ((argc == 3 && (strcmp(argv[1], "-c") == 0)) || argc == 1) ) {
-		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
-		fprintf(stderr, "usage: %s [-c command]\n", progname);
-		exit(EXIT_VAL);
+	if (suuser != NULL) {
+		if (argc == 3 && strcmp(argv[1], "-c") == 0) {
+			newprog = argv[2];
+		} else if (argc != 1) {
+			syslog(LOG_INFO, "%s: not ok: incorrect usage",
+			    myfullname);
+			fprintf(stderr, "usage: %s [-c command]\n", progname);
+			exit(EXIT_VAL);
+		}
 	}
-	if (realprog == NULL) {
+
+	/*
+	 * Determine basename and dirname of invoked program
+	 * XXX: realprog & newprog may be NULL if suuser is being used
+	 */
+	if (newprog != NULL) {
+		splitpath(newprog, &newprogdir, &newprogbase);
+		realprog = which(newprog);
+		if (realprog != NULL)
+			splitpath(realprog, &realprogdir, &realprogbase);
+	}
+	if (suuser == NULL && realprog == NULL) {
 		syslog(LOG_NOTICE, "%s: not ok: command not found: %s",
 		    myfullname, newprog);
 		errx(EXIT_VAL, "command %s not found", newprog);
@@ -288,9 +297,13 @@ main(int argc, char **argv, char **envp)
 		}
 		sl_add(nargv, NULL);
 
-		setuid(0);	/* Set real & effective uid so "su" will work */
-		syslog(LOG_INFO, "su from %s to %s\n", myname, suuser);
+		if (argc == 3)
+			syslog(LOG_INFO, "su from %s to %s: %s\n",
+			    myname, suuser, argv[2]);
+		else
+			syslog(LOG_INFO, "su from %s to %s\n", myname, suuser);
 		envp = lockdown(nflags, realprog, pw, envp);
+		setuid(0);	/* Set real & effective uid so "su" will work */
 		execve(PATH_SU, nargv->sl_str, envp);
 		sverr = errno;
 		syslog(LOG_NOTICE, "%s: not ok: could not su", myfullname);
