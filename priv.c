@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.16 1996/06/19 07:38:00 simonb Exp $
+/*	$Id: priv.c,v 1.17 1996/07/02 23:06:14 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -15,11 +15,11 @@
  *	`priv' is to tell the user what is going wrong.  `priv' has
  *	been redesigned to be used in a production environment as a
  *	substitute for handing out the root password, so I guess it
- *	should be a little bit helpful (but no too much :-).
+ *	should be a little bit helpful (but not too much :-).
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.16 1996/06/19 07:38:00 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.17 1996/07/02 23:06:14 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -52,10 +52,6 @@ static char rcsid[] = "$Id: priv.c,v 1.16 1996/06/19 07:38:00 simonb Exp $";
 #define F_LOGTTY	0000100		/* log user's terminal */
 #define F_SU		0100000		/* check su to an account */
 
-#ifdef __svr4__	/* Solaris 2 */
-# define index strchr
-#endif
-
 #ifdef ultrix
 char *strdup();
 char *strsep();
@@ -69,6 +65,7 @@ static	int check_date __P((const char *));
 static	char *build_log_message __P((const char *, char **, const char *, unsigned int));
 static	char *which __P((const char *));
 
+int
 main(argc, argv, envp)
 	int		argc;
 	char		**argv, **envp;
@@ -144,6 +141,12 @@ main(argc, argv, envp)
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
 		exit(EXIT_VAL);
 	}
+	if (   suuser != NULL
+	    && ! ((argc == 3 && (strcmp(argv[1], "-c") == 0)) || argc == 1) ) {
+		fprintf(stderr, "usage: %s [-c command]\n", prog);
+		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
+		exit(EXIT_VAL);
+	}
 
 	/* Try and open the priv database for "myname". */
 	if ((fp = fopen(userf, "r")) == NULL) {
@@ -191,7 +194,7 @@ main(argc, argv, envp)
 			continue;
 		}
 
-		/* If su'ing, check this first */
+		/* If su-ing, check this first */
 		if (suuser) {
 			if (nflags & F_SU && strcmp(suuser, useras) == 0) {
 				ok = 1;
@@ -255,14 +258,29 @@ main(argc, argv, envp)
 		    myfullname, useras);
 	}
 
-	/* If we're su'ing, nows the time */
+	/* If we're su-ing, now's the time */
 	if (suuser != NULL) {
+		char	*nargv[7];	/* for su,-,user,-c,cmd,(char *)0 */
+		int	nargc;
+
+		nargc = 0;
+		nargv[nargc++] = "su";
+		if (sudash)
+			nargv[nargc++] = "-";
+		nargv[nargc++] = suuser;
+		if (argc == 3) {
+			nargv[nargc++] = argv[1];
+			nargv[nargc++] = argv[2];
+		}
+		nargv[nargc++] = (char *)0;
+
 		setruid(0);	/* Set effective uid so "su" will work */
 		syslog(LOG_INFO, "su from %s to %s\n", myname, suuser);
-		if (sudash)
-			execl("/bin/su", "su", "-", suuser, (char *)0);
-		else
-			execl("/bin/su", "su", suuser, (char *)0);
+		execv("/bin/su", nargv);
+		fprintf(stderr,"%s: couldn't run su\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: could not su", myfullname);
+		exit(EXIT_VAL);
+		/* NOTREACHED */
 	}
 
 	/* Set up the permissions */
@@ -273,7 +291,8 @@ main(argc, argv, envp)
 	}
 	if (initgroups(pw->pw_name, pw->pw_gid) < 0) {
 		fprintf(stderr, "%s: initgroups failed.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m", myfullname);
+		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m",
+		    myfullname);
 		exit(EXIT_VAL);
 	}
 	if (setuid(pw->pw_uid) < 0) {
@@ -429,7 +448,7 @@ which(name)
 		path = _PATH_DEFPATH;
 	cur = path = strdup(path);
 
-	while (p = strsep(&cur, ":")) {
+	while ((p = strsep(&cur, ":")) != NULL) {
 		/*
 		 * It's a SHELL path -- double, leading and trailing colons
 		 * mean the current directory.

@@ -2,7 +2,7 @@
 .\" Author: Simon Burge, <simonb@telstra.com.au>
 .\" Man page converted to mandoc.old by Luke Mewburn <lukem@telstra.com.au>
 .\"
-.\"	$Id: priv.1,v 1.7 1996/05/16 11:22:47 simonb Exp $
+.\"	$Id: priv.1,v 1.1 1996/07/30 11:12:27 lukem Exp $
 .\"
 .ds pn priv
 .\"
@@ -23,7 +23,7 @@ When
 .I \*(pn
 is invoked, it reads a list of authorised commands from a database
 file called
-.B /usr/local/etc/priv/\fRusername\fP .
+.B /usr/local/etc/priv/\fRusername\fP.
 Each line of the database file is a colon-seperated list of fields.
 The first two fields must be specified.
 Blank lines or lines beginning with a ``#'' character are ignored.
@@ -78,6 +78,10 @@ There should be a link from either
 or
 .I su-<user>
 to perform an ``su user'' or ``su - user'' as required.
+If ``-c command'' is given as arguments to this, then it
+is appended to the
+.I su
+command line.
 .PP
 The command name may either be a fully qualified path name, or the
 command will be run from the user's path.
