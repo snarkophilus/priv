@@ -1,7 +1,7 @@
 .\" Copyright (c) 1996, Telstra Limited.  All Right Reserved.
 .\" Author: Simon Burge, <simonb@telstra.com.au>
 .\"
-.\"	$Id: priv.1,v 1.2 1996/04/09 02:49:42 simonb Exp $
+.\"	$Id: priv.1,v 1.3 1996/04/10 00:44:59 simonb Exp $
 .\"
 .Dd March 15, 1996
 .Dt PRIV 1
@@ -36,7 +36,7 @@ command name
 .Pp
 The format of the expiry date is YYYYMMDDhhmm.
 .Pp
-The flags field contains the following bits:
+The flags field is an integer that contains the following bits:
 .Pp
 .Bd -unfilled -offset indent -compact
 #define F_SETUID  00001 /* allow set-{g,u}id programs to run */
