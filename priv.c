@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.19 1996/08/08 06:41:56 lukem Exp $
+/*	$Id: priv.c,v 1.20 1996/08/09 05:07:20 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.19 1996/08/08 06:41:56 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.20 1996/08/09 05:07:20 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -51,11 +51,6 @@ static char rcsid[] = "$Id: priv.c,v 1.19 1996/08/08 06:41:56 lukem Exp $";
 #define F_LOGCMD	0000040		/* log full command name */
 #define F_LOGTTY	0000100		/* log user's terminal */
 #define F_SU		0100000		/* check su to an account */
-
-#ifdef ultrix
-char *strdup();
-char *strsep();
-#endif
 
 #ifdef __svr4__
 char *strsep();
