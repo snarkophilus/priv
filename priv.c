@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.33 1997/07/02 23:09:06 simonb Exp $	*/
+/*	$Id: priv.c,v 1.34 1997/07/03 01:35:30 simonb Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -9,9 +9,9 @@
  */
 
 /*
- * Copyright (c) 1996, 1997 Werj. All rights reserved.
- * This code was contributed to Werj by Simon Burge <simonb@telstra.com.au>
- * and Luke Mewburn <lukem@connect.com.au>
+ * Copyright (c) 1996, 1997 Simon Burge <simonb@telstra.com.au>.
+ * All rights reserved.
+ * Portions Copyright (c) 1997 Luke Mewburn <lukem@connect.com.au>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.33 1997/07/02 23:09:06 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.34 1997/07/03 01:35:30 simonb Exp $";
 #endif /* not lint */
 
 #include <priv.h>

@@ -1,9 +1,9 @@
-/*	$Id: priv.h,v 1.1 1997/02/19 05:04:01 lukem Exp $	*/
+/*	$Id: priv.h,v 1.2 1997/07/02 23:08:12 simonb Exp $	*/
 
 /*
- * Copyright (c) 1996, 1997 Werj. All rights reserved.
- * This code was contributed to Werj by Simon Burge <simonb@telstra.com.au>
- * and Luke Mewburn <lukem@connect.com.au>
+ * Copyright (c) 1996, 1997 Simon Burge <simonb@telstra.com.au>.
+ * All rights reserved.
+ * Portions Copyright (c) 1997 Luke Mewburn <lukem@connect.com.au>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
