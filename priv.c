@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.11 1996/04/09 02:49:23 simonb Exp $
+/*	$Id: priv.c,v 1.12 1996/05/09 05:45:02 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.11 1996/04/09 02:49:23 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.12 1996/05/09 05:45:02 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -42,20 +42,20 @@ static char rcsid[] = "$Id: priv.c,v 1.11 1996/04/09 02:49:23 simonb Exp $";
 /* Flags for the "flags" field.  These are spread out for now in the
  * hope of making configuration files not _too_ hard to read...
  */
-#define F_SETUID	00001		/* allow set-{g,u}id programs to run */
-#define F_SYMLINK	00002		/* allow symlink as command run */
-#define F_BASENAME	00004		/* only check basename of command */
-#define F_LOGLS		00010		/* do an 'ls' of the command run */
-#define F_LOGCWD	00020		/* log working directory */
-#define F_LOGCMD	00040		/* log full command name */
-#define F_LOGTTY	00100		/* log user's terminal */
+#define F_SETUID	0000001		/* allow set-{g,u}id programs to run */
+#define F_SYMLINK	0000002		/* allow symlink as command run */
+#define F_BASENAME	0000004		/* only check basename of command */
+#define F_LOGLS		0000010		/* do an 'ls' of the command run */
+#define F_LOGCWD	0000020		/* log working directory */
+#define F_LOGCMD	0000040		/* log full command name */
+#define F_LOGTTY	0000100		/* log user's terminal */
+#define F_SU		0100000		/* check su to an account */
 
 #ifdef __svr4__	/* Solaris 2 */
 # define index strchr
 #endif
 
 #ifdef ultrix
-char *rindex();
 char *strdup();
 char *strsep();
 #endif
@@ -80,6 +80,8 @@ main(argc, argv, envp)
 	char		*myname, *logname;
 	char		*prog, *newprog, *realprog, *baseprog;
 	char		*expire, *useras, *flags, *cmd;
+	char		*tmp, *suuser;
+	int		sudash;
 	int		maxfd, log_malformed, bad_line, i, ok;
 	unsigned int	nflags;
 
@@ -95,11 +97,35 @@ main(argc, argv, envp)
 	ok = log_malformed = 0;
 	prog = argv[0];
 	newprog = argv[1];
-	if ((baseprog = rindex(newprog, '/')) != NULL)
+	baseprog = NULL;
+	if (newprog != NULL && (baseprog = strrchr(newprog, '/')) != NULL)
 		baseprog++;
 	maxfd = getdtablesize();
 	for (i = 3; i < maxfd; i++)
 		close(i);
+
+	/* Check if we're running as su-<user> or su<user> */
+	suuser = NULL;
+	sudash = 0;
+	if ((tmp = strrchr(prog, '/')) != NULL)
+		tmp++;
+	else
+		tmp = prog;
+	if (strncmp(tmp, "su", 2) == 0) {
+		tmp += 2;
+		if (*tmp == '-') {
+			tmp++;
+			sudash++;
+		}
+		if (*tmp != '\0') {
+			suuser = tmp;
+		}
+		else {
+			fprintf(stderr, "priv: invalid su<user> setup\n");
+			syslog(LOG_INFO, "priv: invalid su<user> setup");
+			exit(1);
+		}
+	}
 
 	pw = getpwuid(getuid());
 	myname = strdup(pw->pw_name);	/* copy so we can use getpw* later */
@@ -113,7 +139,7 @@ main(argc, argv, envp)
 	snprintf(userf, MAXPATHLEN, "%s/%s", PRIVDIR, myname);
 
 	/* Check command usage. */
-	if (argc < 2)  {
+	if (suuser == NULL && argc < 2)  {
 		fprintf(stderr, "usage: %s command args\n", prog);
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
 		exit(1);
@@ -165,6 +191,15 @@ main(argc, argv, envp)
 			continue;
 		}
 
+		/* If su'ing, check this first */
+		if (nflags & F_SU) {
+			if (suuser && strcmp(suuser, useras) == 0) {
+				ok = 1;
+				break;
+			}
+			continue;
+		}
+
 		/* If the command is null, we can do anything. */
 		if (cmd == NULL) {
 			ok = 1;
@@ -209,6 +244,16 @@ main(argc, argv, envp)
 		    prog, useras);
 		syslog(LOG_NOTICE, "%s: not ok: user name %s not valid",
 		    myfullname, useras);
+	}
+
+	/* If we're su'ing, nows the time */
+	if (suuser != NULL) {
+		setruid(0);	/* Set effective uid so "su" will work */
+		syslog(LOG_INFO, "su from %s to %s\n", myname, suuser);
+		if (sudash)
+			execl("/bin/su", "su", "-", suuser, (char *)0);
+		else
+			execl("/bin/su", "su", suuser, (char *)0);
 	}
 
 	/* Set up the permissions */
