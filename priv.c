@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.4 1996/03/12 14:03:10 simonb Exp $
+/*	$Id: priv.c,v 1.5 1996/03/13 07:07:47 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id$";
+static char rcsid[] = "$Id: priv.c,v 1.5 1996/03/13 07:07:47 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -96,8 +96,8 @@ char	**argv, **envp;
 	 * a command that matches our command line.
 	 */
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		buffer[strlen(buffer) - 1] = '\0'; /* zap newline */
-		if (!*buffer || *buffer == '#')
+		buffer[strlen(buffer) - 1] = '\0';	/* zap newline */
+		if (!*buffer || *buffer == '#')		/* skip comments */
 			continue;
 		bad_line = 0;
 
@@ -144,8 +144,8 @@ char	**argv, **envp;
 	/* Check to see if the command was valid, and exit if not. */
 	if (!ok) {
 		fprintf(stderr, "%s: command not valid.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: command not valid",
-		    myname);
+		syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
+		    myname, newprog);
 		exit(1);
 		/* NOTREACHED */
 	}
