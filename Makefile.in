@@ -71,3 +71,6 @@ distclean: clean
 
 realclean: distclean
 	rm -f TAGS
+
+cvsclean: realclean
+	rm -f configure config.h.in
