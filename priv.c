@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.24 1997/01/24 07:50:19 lukem Exp $
+/*	$Id: priv.c,v 1.25 1997/01/29 03:10:24 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -46,7 +46,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.24 1997/01/24 07:50:19 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.25 1997/01/29 03:10:24 lukem Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -94,7 +94,7 @@ char	*build_log_message(const char *, char **, const char *, unsigned int);
 void	 splitpath(const char *, char **, char **);
 char	*which(const char *);
 char	*strsep(char **, const char *);
-char	*strdupe(const char *);
+char	*xstrdup(const char *);
 
 char	*progname;
 
@@ -163,7 +163,7 @@ main(argc, argv, envp)
 	}
 
 	pw = getpwuid(getuid());
-	myname = strdupe(pw->pw_name);	/* copy so we can use getpw* later */
+	myname = xstrdup(pw->pw_name);	/* copy so we can use getpw* later */
 	strcpy(myfullname, pw->pw_name);
 	if ((logname = getlogin()) != NULL && strcmp(logname, myname)) {
 		strcat(myfullname, " (");
@@ -355,8 +355,6 @@ main(argc, argv, envp)
 		exit(EXIT_VAL);
 	}
 
-	realprog = which(newprog);
-
 	/* Check for sym-link */
 	if (!(nflags & F_SYMLINK)) {
 		struct stat	st;
@@ -513,28 +511,28 @@ splitpath(path, dir, base)
 
 	o = strrchr(path, '/');
 	if (o == NULL) {
-		*base = strdupe(path);
-		*dir = strdupe("");
+		*base = xstrdup(path);
+		*dir = xstrdup("");
 	} else if (o == path) {
-		*base = strdupe(path + 1);
-		*dir = strdupe("/");
+		*base = xstrdup(path + 1);
+		*dir = xstrdup("/");
 	} else {
-		*base = strdupe(o + 1);
-		*dir = strdupe(path);
+		*base = xstrdup(o + 1);
+		*dir = xstrdup(path);
 		(*dir)[o - path] = '\0';
 	}
 }
 
 
 /*
- * strdupe --
+ * xstrdup --
  *	strdup() the given string, and return the result.
  *	If the string is NULL, return NULL.
  *	Prints a message to stderr and exits with a non-zero
  *	return code if the memory couldn't be allocated.
  */
 char *
-strdupe(str)
+xstrdup(str)
 	const char	*str;
 {
 	char *newstr;
@@ -575,7 +573,7 @@ which(name)
 	/* Get the path we're searching. */
 	if (!(path = getenv("PATH")))
 		path = DEFPATH;
-	cur = path = strdupe(path);
+	cur = path = xstrdup(path);
 
 	while ((p = strsep(&cur, ":")) != NULL) {
 		/*
