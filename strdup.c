@@ -33,11 +33,19 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)strdup.c	5.4 (Berkeley) 2/24/91";*/
-static char *rcsid = "$Id: strdup.c,v 1.6 1995/06/15 00:07:53 jtc Exp $";
+static char *rcsid = "$Id: strdup.c,v 1.1 1997/07/02 00:32:27 simonb Exp $";
 #endif /* LIBC_SCCS and not lint */
 
+#include <config.h>
+
+#include <stdio.h>
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#include <string.h>
+#endif
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#include <sys/types.h>
 
 char *
 strdup(str)
