@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.34 1997/07/03 01:35:30 simonb Exp $	*/
+/*	$Id: priv.c,v 1.35 1997/07/08 06:19:06 simonb Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -48,7 +48,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.34 1997/07/03 01:35:30 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.35 1997/07/08 06:19:06 simonb Exp $";
 #endif /* not lint */
 
 #include <priv.h>
@@ -437,7 +437,7 @@ build_log_message(const char *myname, char **argv,
 		if (LOGBUFSIZ - strlen(log) - strlen(prog) - 7 > 0)
 			sprintf(log + strlen(log), " (cmd=%s)", prog);
 	}
-	left = LOGBUFSIZ - strlen(log) - 2;
+	left = LOGBUFSIZ - strlen(log) - 3;	/* ":" + " " + NUL */
 	if (left > 0)
 		strcat(log, ":");
 	while (*argv && left > 0) {
