@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.31 1997/02/22 16:51:27 lukem Exp $	*/
+/*	$Id: priv.c,v 1.32 1997/03/27 10:11:13 lukem Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -48,10 +48,10 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.31 1997/02/22 16:51:27 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.32 1997/03/27 10:11:13 lukem Exp $";
 #endif /* not lint */
 
-#include "priv.h"
+#include <priv.h>
 
 /*
  * main --
@@ -403,14 +403,26 @@ build_log_message(const char *myname, char **argv,
 		if (LOGBUFSIZ - strlen(log) - strlen(tty) - 4 > 0)
 			sprintf(log + strlen(log), " (%s)", tty);
 	}
+#if defined HAVE_GETCWD || defined HAVE_GETWD
 	if (flags & F_LOGCWD) {
+#ifdef HAVE_GETCWD
 		char	*pwd;
+#else
+		char	 pwd[1024]	/* XXX - clean way of getting PATH_MAX ??? */
+#endif
 
+#if defined HAVE_GETCWD
 		pwd = getcwd(NULL, LOGBUFSIZ - strlen(log) - 7);
+#else
+		getwd(pwd);
+#endif
 		if (LOGBUFSIZ - strlen(log) - strlen(pwd) - 7 > 0)
 			sprintf(log + strlen(log), " (pwd=%s)", pwd);
+#ifdef HAVE_GETCWD
 		free(pwd);
+#endif
 	}
+#endif /* HAVE_GETCWD || HAVE_GETWD */
 	if (flags & F_LOGLS) {
 		struct stat	st;
 
@@ -536,6 +548,13 @@ getreason(const char *user, const char *prog)
 		putchar('\n');
 }
 
+#ifndef MAXFD
+#ifdef HAVE_GETDTABLESIZE
+#define MAXFD	getdtablesize()
+#else
+#define MAXFD	(sysconf(_SC_OPEN_MAX))
+#endif
+#endif
 
 /*
  * lockdown --
@@ -550,9 +569,6 @@ lockdown(int flags, char *prog, struct passwd *user, char **envp)
 	int		i;
 
 		/* Close file descriptors */
-#ifndef MAXFD
-#define MAXFD	(sysconf(_SC_OPEN_MAX))
-#endif
 	for (i = 3; i < MAXFD; i++)
 		close(i);
 
