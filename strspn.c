@@ -36,7 +36,7 @@
 static char *rcsid = "$Id: strspn.c,v 1.4 1995/06/15 00:08:37 jtc Exp $";
 #endif /* LIBC_SCCS and not lint */
 
-#include <string.h>
+#include <sys/types.h>
 
 /*
  * Span the string s2 (skip characters that are in s2).
