@@ -1,0 +1,73 @@
+#### Start of system configuration section. ####
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+CFLAGS = @CFLAGS@
+DEFS = -DPRIVDIR=\"${sysconfdir}/priv\"
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+sysconfdir = @sysconfdir@
+
+# Where to install the manual page
+mandir = $(prefix)/man/man1
+# Extension (not including `.') for the installed manual page filenames
+manext = 1
+
+#### End of system configuration section. ####
+
+SHELL = /bin/sh
+BINMODE = 4555
+
+# This rule allows us to supply the necessary -D options
+# in addition to whatever the user asks for.
+.c.o:
+	${CC} -I${srcdir} ${CPPFLAGS} ${CFLAGS} ${DEFS} -c $<
+
+OBJ = priv.o stringlist.o @LIBOBJS@
+
+all: priv
+
+distall: ${srcdir}/configure ${srcdir}/config.h
+
+priv: ${OBJ} @LIBOBJS@
+	${CC} ${LDFLAGS} -o $@ ${OBJ} ${LIBS}
+
+${OBJ}: ${srcdir}/priv.h config.h 
+
+install: all ${srcdir}/priv.1 installdirs
+	${INSTALL_PROGRAM} -m ${BINMODE} priv ${bindir}/${binprefix}priv
+	${INSTALL_DATA} ${srcdir}/priv.1 ${mandir}/${manprefix}priv.${manext}
+
+installdirs: mkinstalldirs
+	${srcdir}/mkinstalldirs ${bindir} ${mandir} ${sysconfdir}/priv
+
+uninstall:
+	rm -f ${bindir}/${binprefix}priv
+	rm -f ${mandir}/less.${manext} ${mandir}/lesskey.${manext}
+	echo "Remove ${sysconfdir}/priv manually"
+
+TAGS:
+	cd ${srcdir} && etags *.c *.h
+
+clean:
+	rm -f *.o core priv
+
+mostlyclean: clean
+
+distclean: clean
+	rm -f Makefile config.status config.log config.cache config.h
+	rm -f stamp-h stamp-h.in
+
+realclean: distclean
+	rm -f TAGS
