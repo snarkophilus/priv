@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.7 1996/03/29 06:56:14 simonb Exp $
+/*	$Id: priv.c,v 1.8 1996/04/05 03:36:56 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,23 +19,34 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.7 1996/03/29 06:56:14 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.8 1996/04/05 03:36:56 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 #include <pwd.h>
+#include <paths.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <sys/param.h>
 #include <sys/cdefs.h>
 #include <sys/time.h>
-#include <sys/param.h>
+#include <sys/stat.h>
 
 #define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
 #define SYSLOGNAME	"priv"			/* name used with syslog */
-#define LOGBUFSIZ	120			/* number of characters to log */
+#define LOGBUFSIZ	256			/* number of characters to log */
 #define MYNAMELEN	20			/* room for user name (+ log name) */
 
+/* Flags for the "flags" field.  These are spread out for now in the
+ * hope of making configuration files not _too_ hard to read...
+ */
+#define F_SETUID	00001		/* allow set-{g,u}id programs to run */
+#define F_SYMLINK	00002		/* allow symlink as command run */
+#define F_LOGLS		00010		/* do an 'ls' of the command run */
+#define F_LOGCWD	00020		/* log working directory */
+#define F_LOGCMD	00040		/* log full command name */
 
 #ifdef __svr4__	/* Solaris 2 */
 # define index strchr
@@ -43,10 +54,16 @@ static char rcsid[] = "$Id: priv.c,v 1.7 1996/03/29 06:56:14 simonb Exp $";
 
 #ifdef ultrix
 char *strdup();
+char *strsep();
+#endif
+
+#ifndef S_ISLNK
+#define	S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
 #endif
 
 static	int check_date __P((const char *));
-static	char *build_log_message __P((const char *, char **));
+static	char *build_log_message __P((const char *, char **, const char *, unsigned int));
+static	char *which __P((const char *));
 
 main(argc, argv, envp)
 	int		argc;
@@ -57,9 +74,10 @@ main(argc, argv, envp)
 	char		userf[MAXPATHLEN];
 	char		buffer[BUFSIZ];
 	char		myfullname[MYNAMELEN];
-	char		*myname, *logname, *prog, *newprog;
+	char		*myname, *logname, *prog, *newprog, *realprog;
 	char		*expire, *useras, *flags, *cmd;
 	int		maxfd, log_malformed, bad_line, i, ok;
+	unsigned int	nflags;
 
 
 	/* Open syslog connection. */
@@ -118,16 +136,18 @@ main(argc, argv, envp)
 		cmd = strtok(NULL, ":");
 
 		/*
-		 * Check for a bad data line.  The expiry date and flags
-		 * should be numeric.  The user name field is checked
-		 * later on with getpwnam(), and who gives a damn about
-		 * the command name...  If we have a bad line, log an
-		 * error to syslog, but only once...
+		 * Check for a bad data line.  The expiry date should 
+		 * be numeric and the flags octal.  The user name field
+		 * is checked later on with getpwnam(), and who gives a
+		 * damn about the command name...  If we have a bad
+		 * line, log an error to syslog, but only once...
 		 */
 		if (strspn(expire, "0123456789") != strlen(expire))
 			bad_line++;
-		if (flags && strspn(flags, "0123456789") != strlen(flags))
+		if (flags && strspn(flags, "01234567") != strlen(flags))
 			bad_line++;
+		/* Convert character flags to number */
+		nflags = flags ? strtoul(flags, NULL, 0) : 0;
 		if (!useras)
 			bad_line++;
 		if (bad_line) {
@@ -189,9 +209,51 @@ main(argc, argv, envp)
 		exit(1);
 	}
 
-	/* All's well, execute the command. */
-	syslog(LOG_INFO, build_log_message(myfullname, argv + 1));
-	execvp(newprog, argv + 1);
+	realprog = which(newprog);
+
+	/* Check for sym-link */
+	if (!(nflags & F_SYMLINK)) {
+		struct stat	st;
+
+		if (lstat(realprog, &st) < 0) {
+			fprintf(stderr, "%s: internal error\n", prog);
+			perror(prog);
+			exit(1);
+		}
+		if (S_ISLNK(st.st_mode)) {
+			fprintf(stderr, "%s: command is sym-link\n", prog);
+			syslog(LOG_NOTICE, "%s: not ok: command is symlink: %s",
+			    myfullname, realprog);
+			exit(1);
+		}
+	}
+
+	/* Check for set{u,g}id */
+	if (!(nflags & F_SETUID)) {
+		struct stat	st;
+
+		if (stat(realprog, &st) < 0) {
+			fprintf(stderr, "%s: internal error\n", prog);
+			perror(prog);
+			exit(1);
+		}
+		if (st.st_mode & S_ISUID) {
+			fprintf(stderr, "%s: command is setuid\n", prog);
+			syslog(LOG_NOTICE, "%s: not ok: command is setuid: %s",
+			    myfullname, realprog);
+			exit(1);
+		}
+		if (st.st_mode & S_ISGID) {
+			fprintf(stderr, "%s: command is setgid\n", prog);
+			syslog(LOG_NOTICE, "%s: not ok: command is setgid: %s",
+			    myfullname, realprog);
+			exit(1);
+		}
+	}
+
+	/* All's well so far, get ready to execute the command. */
+	syslog(LOG_INFO, build_log_message(myfullname, argv + 1, realprog, nflags));
+	execve(realprog, argv + 1, envp);
 	fprintf(stderr,"%s: can't execute %s\n", prog, newprog);
 	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
 	    myfullname, newprog);
@@ -217,14 +279,41 @@ check_date(date)
 
 
 static char *
-build_log_message(myname, argv)
+build_log_message(myname, argv, prog, flags)
 	const char	*myname;
 	char		**argv;
+	const char	*prog;
+	unsigned int	flags;
 {
 	static char	log[LOGBUFSIZ];
 	int		left;
 
-	sprintf(log, "%s:", myname);
+	sprintf(log, "%s", myname);
+	if (flags & F_LOGCWD) {
+		char	*pwd;
+
+		pwd = getcwd(NULL, LOGBUFSIZ - strlen(log) - 2);
+		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
+		    " (pwd=%s)", pwd);
+		free(pwd);
+	}
+	if (flags & F_LOGLS) {
+		struct stat	st;
+
+		if (stat(prog, &st) < 0) {
+			fprintf(stderr, "%s: internal error\n", prog);
+			perror(prog);
+			exit(1);
+		}
+		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
+		    " (ls=%4o:%d:%d:%d:%s)", st.st_mode % 010000,
+		    st.st_uid, st.st_gid, st.st_size, prog);
+	}
+	if (flags & F_LOGCMD) {
+		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
+		    " (cmd=%s)", prog);
+	}
+	strcat(log, ":");
 	left = LOGBUFSIZ - strlen(log) - 2;
 	while (*argv) {
 		strcat(log, " ");
@@ -235,4 +324,41 @@ build_log_message(myname, argv)
 			break;
 	}
 	return(log);
+}
+
+
+/* Below code hacked from exec.c (execvp) from NetBSD (April '96) */
+
+static char *
+which(name)
+	const char	*name;
+{
+	char		*cur, *p, *path;
+	static char	buf[MAXPATHLEN];
+
+	/* If it's an absolute or relative path name, it's too easy. */
+	if (strchr(name, '/'))
+		return((char *)name);
+
+	/* Get the path we're searching. */
+	if (!(path = getenv("PATH")))
+		path = _PATH_DEFPATH;
+	cur = path = strdup(path);
+
+	while (p = strsep(&cur, ":")) {
+		/*
+		 * It's a SHELL path -- double, leading and trailing colons
+		 * mean the current directory.
+		 */
+		sprintf(buf, "%s/%s", *p ? p : ".", name);
+
+		if (access(buf, X_OK) == 0) {
+			if (path)
+				free(path);
+			return(buf);
+		}
+	}
+	if (path)
+		free(path);
+	return (NULL);
 }
