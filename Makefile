@@ -7,8 +7,8 @@ BINOWN=	root
 BINDIR=	/opt/local/sbin
 PRIVDIR=/opt/local/etc/priv
 
-CC=	cc
-CFLAGS=	-O -DPRIVDIR=\"${PRIVDIR}\"
+CC=	gcc
+CFLAGS=	-O2 -pipe -DPRIVDIR=\"${PRIVDIR}\"
 
 ${PROG}:	${OBJS}
 	${CC} ${LFLAGS} ${OBJS} -o $@

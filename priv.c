@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.25 1997/01/29 03:10:24 lukem Exp $
+/*	$Id: priv.c,v 1.26 1997/01/29 03:38:03 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -46,7 +46,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.25 1997/01/29 03:10:24 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.26 1997/01/29 03:38:03 lukem Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -68,8 +68,8 @@ static char rcsid[] = "$Id: priv.c,v 1.25 1997/01/29 03:10:24 lukem Exp $";
 
 #define DEFPATH		"/usr/bin:/bin"
 #define SYSLOGNAME	"priv"			/* name used with syslog */
-#define LOGBUFSIZ	2048 + 256		/* number of characters to log */
-#define MYNAMELEN	20			/* room for user name (+ log name) */
+#define LOGBUFSIZ	2048 + 256		/* number of chars to log */
+#define MYNAMELEN	20			/* room for username+logname */
 #define EXIT_VAL	255			/* Error exit value */
 
 /* Flags for the "flags" field.  These are spread out for now in the
@@ -83,21 +83,38 @@ static char rcsid[] = "$Id: priv.c,v 1.25 1997/01/29 03:10:24 lukem Exp $";
 #define F_LOGCMD	0000040		/* log full command name */
 #define F_LOGTTY	0000100		/* log user's terminal */
 #define F_BINPATH	0000200		/* allow any in given path */
+#define F_GIVEREASON	0000400		/* ask for reason for running priv */
 #define F_SU		0100000		/* check su to an account */
 
 #ifndef S_ISLNK
 #define	S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
 #endif
 
-int	 check_date(const char *);
-char	*build_log_message(const char *, char **, const char *, unsigned int);
-void	 splitpath(const char *, char **, char **);
-char	*which(const char *);
-char	*strsep(char **, const char *);
-char	*xstrdup(const char *);
+#ifndef __P
+#ifdef __STDC__
+#define __P(x)	x
+#else
+#define __P(x)	()
+#endif
+#endif
+
+int	 check_date __P((const char *));
+char	*build_log_message __P((const char *, char **, const char *,
+				unsigned int));
+void	 getreason __P((const char *, const char *));
+void	 splitpath __P((const char *, char **, char **));
+char	*which __P((const char *));
+char	*strsep __P((char **, const char *));
+char	*xstrdup __P((const char *));
+
 
 char	*progname;
 
+
+/*
+ * main --
+ *	main entry point
+ */
 int
 main(argc, argv, envp)
 	int		argc;
@@ -120,14 +137,13 @@ main(argc, argv, envp)
 
 	/* Open syslog connection. */
 #ifdef LOG_AUTH
-	openlog(SYSLOGNAME, 0, LOG_AUTH);
+	openlog(SYSLOGNAME, LOG_PID, LOG_AUTH);
 #else
 	openlog(SYSLOGNAME);
 #endif
 
 	/* Initialisation... */
 	ok = log_malformed = 0;
-	progname = argv[0];
 	newprog = argv[1];
 	if (newprog != NULL) {
 		splitpath(newprog, &newprogdir, &newprogbase);
@@ -142,10 +158,9 @@ main(argc, argv, envp)
 	/* Check if we're running as su-<user> or su<user> */
 	suuser = NULL;
 	sudash = 0;
-	if ((tmp = strrchr(progname, '/')) != NULL)
-		tmp++;
-	else
-		tmp = progname;
+	splitpath(argv[0], &tmp, &progname);
+	free(tmp);
+	tmp = progname;
 	if (strncmp(tmp, "su", 2) == 0) {
 		tmp += 2;
 		if (*tmp == '-') {
@@ -312,6 +327,10 @@ main(argc, argv, envp)
 		    myfullname, useras);
 	}
 
+	/* If necessary, ask for a reason for running priv */
+	if ((nflags & F_GIVEREASON))
+		getreason(myfullname, suuser ? progname : newprogbase);
+
 	/* If we're su-ing, now's the time */
 	if (suuser != NULL) {
 		char	*nargv[7];	/* for su,-,user,-c,cmd,(char *)0 */
@@ -396,7 +415,8 @@ main(argc, argv, envp)
 	}
 
 	/* All's well so far, get ready to execute the command. */
-	syslog(LOG_INFO, build_log_message(myfullname, argv + 1, realprog, nflags));
+	syslog(LOG_INFO, build_log_message(myfullname, argv + 1, realprog,
+	    nflags));
 	execve(realprog, argv + 1, envp);
 	fprintf(stderr,"%s: can't execute %s\n", progname, newprog);
 	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
@@ -447,7 +467,7 @@ build_log_message(myname, argv, prog, flags)
 	if (flags & F_LOGTTY) {
 		char	*tty;
 
-		tty = ttyname(0);	/* XXX: stdin filedes */
+		tty = ttyname(fileno(stdin));
 		if (!tty)
 			tty = "NOTTY";
 		if (strncmp(tty, "/dev/", 5) == 0)
@@ -491,6 +511,46 @@ build_log_message(myname, argv, prog, flags)
 		argv++;
 	}
 	return(log);
+}
+
+
+/*
+ * getreason --
+ *	Ask user for a reason, and give it
+ *	If stdin isn't a terminal, log "NOREASON
+ */
+void
+getreason(user, prog)
+	const char	*user;
+	const char	*prog;
+{
+	static const char prompt[] = ">> ";
+
+	char	buf[256];
+	int	len;
+	int	lines;
+
+	if (! isatty(fileno(stdin)))
+		return;
+	printf("Enter reason for running %s, "
+		"terminated with single '.' or EOF\n%s", prog, prompt);
+	lines = 0;
+	while (fgets(buf, sizeof(buf), stdin) != NULL) {
+		len = strlen(buf);
+		if (len == 0)
+			break;			/* shouldn't happen! */
+		if (buf[len-1] == '\n')
+			buf[len-1] = '\0';
+		if (strcmp(buf, ".") == 0)
+			break;
+		syslog(LOG_INFO, "%s: reason: %s", user, buf);
+		lines++;
+		printf("%s", prompt);
+	}
+	if (!lines)
+		syslog(LOG_INFO, "%s: reason: NON GIVEN", user);
+	if (strcmp(buf, ".") != 0)
+		putchar('\n');
 }
 
 
@@ -554,7 +614,7 @@ xstrdup(str)
  *	Determine the full pathname of the program to execute
  *	from the $PATH if necessary.
  *
- *	 Code hacked from exec.c (execvp) from NetBSD (April '96)
+ *	Code hacked from exec.c (execvp) from NetBSD (April '96)
  */
 char *
 which(name)

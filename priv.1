@@ -1,4 +1,4 @@
-.\"	$Id: priv.1,v 1.4 1997/01/19 03:02:16 lukem Exp $
+.\"	$Id: priv.1,v 1.5 1997/01/29 03:10:23 lukem Exp $
 .\"
 .\" Copyright (c) 1996 Telstra Corporation Limited. All rights reserved.
 .\" Author: Simon Burge <simonb@telstra.com.au>
@@ -69,23 +69,25 @@ The flags field is an integer that contains the following bits:
 .PP
 .PD 0
 .IP
-F_SETUID   0000001  allow set-[gu]id programs to run
+F_SETUID     0000001  allow set-[gu]id programs to run
 .IP
-F_SYMLINK  0000002  allow symlink as command run
+F_SYMLINK    0000002  allow symlink as command run
 .IP
-F_BASENAME 0000004  only check basename of command
+F_BASENAME   0000004  only check basename of command
 .IP
-F_LOGLS    0000010  do an 'ls' of the command run
+F_LOGLS      0000010  do an 'ls' of the command run
 .IP
-F_LOGCWD   0000020  log working directory
+F_LOGCWD     0000020  log working directory
 .IP
-F_LOGCMD   0000040  log full command name
+F_LOGCMD     0000040  log full command name
 .IP
-F_LOGTTY   0000100  log user's terminal
+F_LOGTTY     0000100  log user's terminal
 .IP
-F_BINPATH  0000200  allow any command in given path
+F_BINPATH    0000200  allow any command in given path
 .IP
-F_SU       0100000  check su to an account
+F_GIVEREASON 0000400  ask for reason for running priv
+.IP
+F_SU         0100000  check su to an account
 .PD
 .PP
 The
