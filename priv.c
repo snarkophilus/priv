@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.17 1996/07/02 23:06:14 simonb Exp $
+/*	$Id: priv.c,v 1.18 1996/07/31 07:23:35 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.17 1996/07/02 23:06:14 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.18 1996/07/31 07:23:35 lukem Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -274,7 +274,7 @@ main(argc, argv, envp)
 		}
 		nargv[nargc++] = (char *)0;
 
-		setruid(0);	/* Set effective uid so "su" will work */
+		setuid(0);	/* Set real & effective uid so "su" will work */
 		syslog(LOG_INFO, "su from %s to %s\n", myname, suuser);
 		execv("/bin/su", nargv);
 		fprintf(stderr,"%s: couldn't run su\n", prog);
