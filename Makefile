@@ -7,7 +7,7 @@ MANDIR=	/usr/local/man/cat
 
 # Ultrix compat stuff...
 .if exists(/usr/local/lib/libsyslog.a)
-CFLAGS+=-I/usr/local/include/local
+CFLAGS+=-I/usr/local/include/local -g
 LDADD+=	-lsyslog
 .endif
 .if exists(/usr/local/lib/libnetbsd.a)

@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.6 1996/03/29 06:54:23 simonb Exp $
+/*	$Id: priv.c,v 1.7 1996/03/29 06:56:14 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,13 +19,14 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.6 1996/03/29 06:54:23 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.7 1996/03/29 06:56:14 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 #include <pwd.h>
+#include <unistd.h>
 #include <sys/cdefs.h>
 #include <sys/time.h>
 #include <sys/param.h>
@@ -33,6 +34,8 @@ static char rcsid[] = "$Id: priv.c,v 1.6 1996/03/29 06:54:23 simonb Exp $";
 #define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
 #define SYSLOGNAME	"priv"			/* name used with syslog */
 #define LOGBUFSIZ	120			/* number of characters to log */
+#define MYNAMELEN	20			/* room for user name (+ log name) */
+
 
 #ifdef __svr4__	/* Solaris 2 */
 # define index strchr
@@ -46,16 +49,17 @@ static	int check_date __P((const char *));
 static	char *build_log_message __P((const char *, char **));
 
 main(argc, argv, envp)
-int	argc;
-char	**argv, **envp;
+	int		argc;
+	char		**argv, **envp;
 {
-	struct	passwd *pw;
-	FILE	*fp;
-	char	userf[MAXPATHLEN];
-	char	buffer[BUFSIZ];
-	char	*myname, *prog, *newprog;
-	char	*expire, *useras, *flags, *cmd;
-	int	maxfd, log_malformed, bad_line, i, ok;
+	struct passwd	*pw;
+	FILE		*fp;
+	char		userf[MAXPATHLEN];
+	char		buffer[BUFSIZ];
+	char		myfullname[MYNAMELEN];
+	char		*myname, *logname, *prog, *newprog;
+	char		*expire, *useras, *flags, *cmd;
+	int		maxfd, log_malformed, bad_line, i, ok;
 
 
 	/* Open syslog connection. */
@@ -75,12 +79,19 @@ char	**argv, **envp;
 
 	pw = getpwuid(getuid());
 	myname = strdup(pw->pw_name);	/* copy so we can use getpw* later */
+	strcpy(myfullname, pw->pw_name);
+	logname = getlogin();
+	if ((logname = getlogin()) != NULL && strcmp(logname, myname)) {
+		strcat(myfullname, " (");
+		strcat(myfullname, logname);
+		strcat(myfullname, ")");
+	}
 	snprintf(userf, MAXPATHLEN, "%s/%s", PRIVDIR, myname);
 
 	/* Check command usage. */
 	if (argc < 2)  {
 		fprintf(stderr, "usage: %s command args\n", prog);
-		syslog(LOG_INFO, "%s: not ok: incorrect usage", myname);
+		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
 		exit(1);
 	}
 
@@ -139,7 +150,7 @@ char	**argv, **envp;
 	if (!ok) {
 		fprintf(stderr, "%s: command not valid.\n", prog);
 		syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
-		    myname, newprog);
+		    myfullname, newprog);
 		exit(1);
 		/* NOTREACHED */
 	}
@@ -148,7 +159,7 @@ char	**argv, **envp;
 	if (!check_date(expire)) {
 		fprintf(stderr, "%s: command expired.\n", prog);
 		syslog(LOG_NOTICE, "%s: not ok: command expired: %s",
-		    myname, newprog);
+		    myfullname, newprog);
 		exit(1);
 		/* NOTREACHED */
 	}
@@ -158,43 +169,43 @@ char	**argv, **envp;
 		fprintf(stderr, "%s: invalid user (%s) to run command as.\n",
 		    prog, useras);
 		syslog(LOG_NOTICE, "%s: not ok: user name %s not valid",
-		    myname, useras);
+		    myfullname, useras);
 	}
 
 	/* Set up the permissions */
 	if (setgid(pw->pw_gid) < 0) {
 		fprintf(stderr, "%s: setgid failed.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: setgid failed: %m", myname);
+		syslog(LOG_NOTICE, "%s: not ok: setgid failed: %m", myfullname);
 		exit(1);
 	}
 	if (initgroups(pw->pw_name, pw->pw_gid) < 0) {
 		fprintf(stderr, "%s: initgroups failed.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m", myname);
+		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m", myfullname);
 		exit(1);
 	}
 	if (setuid(pw->pw_uid) < 0) {
 		fprintf(stderr, "%s: setuid failed.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: setuid failed: %m", myname);
+		syslog(LOG_NOTICE, "%s: not ok: setuid failed: %m", myfullname);
 		exit(1);
 	}
 
 	/* All's well, execute the command. */
-	syslog(LOG_INFO, build_log_message(myname, argv + 1));
+	syslog(LOG_INFO, build_log_message(myfullname, argv + 1));
 	execvp(newprog, argv + 1);
 	fprintf(stderr,"%s: can't execute %s\n", prog, newprog);
 	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
-	    myname, newprog);
+	    myfullname, newprog);
 	exit(1);
 	/* NOTREACHED */
 }
 
 static int
 check_date(date)
-	const	char *date;
+	const char	*date;
 {
-	time_t	t;
-	struct	tm *tm;
-	char	buf[128];
+	time_t		t;
+	struct tm	*tm;
+	char		buf[128];
 
 	(void)time(&t);
 	tm = localtime(&t);
@@ -207,11 +218,11 @@ check_date(date)
 
 static char *
 build_log_message(myname, argv)
-	const	char *myname;
-	char	**argv;
+	const char	*myname;
+	char		**argv;
 {
-	static	char log[LOGBUFSIZ];
-	int	left;
+	static char	log[LOGBUFSIZ];
+	int		left;
 
 	sprintf(log, "%s:", myname);
 	left = LOGBUFSIZ - strlen(log) - 2;
