@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.22 1996/12/20 04:24:15 simonb Exp $
+/*	$Id: priv.c,v 1.23 1997/01/19 03:02:17 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -46,7 +46,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.22 1996/12/20 04:24:15 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.23 1997/01/19 03:02:17 lukem Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -62,8 +62,11 @@ static char rcsid[] = "$Id: priv.c,v 1.22 1996/12/20 04:24:15 simonb Exp $";
 #include <syslog.h>
 #include <unistd.h>
 
-#define DEFPATH		"/usr/bin:/bin"
+#ifndef PRIVDIR
 #define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
+#endif
+
+#define DEFPATH		"/usr/bin:/bin"
 #define SYSLOGNAME	"priv"			/* name used with syslog */
 #define LOGBUFSIZ	2048 + 256		/* number of characters to log */
 #define MYNAMELEN	20			/* room for user name (+ log name) */

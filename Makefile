@@ -7,7 +7,7 @@ BINOWN=	root
 BINDIR=	/usr/local/bin
 
 CC=	gcc
-CFLAGS=	-O2 -Wall
+CFLAGS=	-O2 -Wall -DPRIVDIR=\"/opt/local/etc/priv\"
 
 ${PROG}:	${OBJS}
 	${CC} ${LFLAGS} ${OBJS} -o $@
