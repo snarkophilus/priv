@@ -2,7 +2,7 @@
  * priv  Run a command as superuser
  * by Ron Kuris, December 1988
  *
- * $Id: priv.c,v 1.1.1.1 1995/12/10 04:44:42 simonb Exp $
+ * $Id: priv.c,v 1.2 1996/01/23 01:03:56 simonb Exp $
  */
 /*
  *	access list added by Dan Busarow, DPC Systems, 11/22/91
@@ -58,6 +58,14 @@ int argc;
 	int pathok = 0;
 #endif /* ! NEWPATH */
 
+#ifdef LOG_AUTHPRIV
+	openlog(SYSLOGNAME, 0, LOG_AUTHPRIV);
+#elif defined(LOG_AUTH)
+	openlog(SYSLOGNAME, 0, LOG_AUTH);
+#else
+	openlog(SYSLOGNAME);
+#endif
+
 	prog = argv[0]; /* store program name */
 	pw = getpwuid(getuid());
 	lname = pw->pw_name;
@@ -70,15 +78,14 @@ int argc;
 		run it
 		***/
 #ifdef USE_SYSLOG
-		syslog(LOG_INFO, "%s: %s: incorrect usage", SYSLOGNAME, lname);
+		syslog(LOG_NOTICE, "%s: incorrect usage", lname);
 #endif
 		exit(ERREXIT);
 	}
 	if ((fp = fopen(PRIVLIST, "r")) == NULL) {
-		fprintf(stderr, "Can't open database\n");
+		fprintf(stderr, "%s: Can't open database\n", prog);
 #ifdef USE_SYSLOG
-		syslog(LOG_INFO, "%s: %s: can't open database",
-					SYSLOGNAME, lname);
+		syslog(LOG_NOTICE, "%s: can't open database", lname);
 #endif
 		exit(ERREXIT);
 	}
@@ -103,8 +110,7 @@ int argc;
 				   now root so you better trust them! */
 				ok = 1;
 #ifdef USE_SYSLOG
-				syslog(LOG_INFO, "%s: %s: full access",
-							SYSLOGNAME, lname);
+				syslog(LOG_NOTICE, "%s: full access", lname);
 #endif
 			}
 			else {
@@ -117,14 +123,12 @@ int argc;
 				}
 #ifdef USE_SYSLOG
 				if (ok) {
-					syslog(LOG_INFO,
-						"%s: %s: command approved",
-						SYSLOGNAME, lname);
+					syslog(LOG_NOTICE,
+						"%s: command approved", lname);
 				}
 				else {
-					syslog(LOG_INFO,
-						"%s: %s: command not valid",
-						SYSLOGNAME, lname);
+					syslog(LOG_NOTICE,
+						"%s: command not valid", lname);
 				}
 #endif
 			}
@@ -135,8 +139,8 @@ int argc;
 #ifndef NEWPATH
 			if (getenv("PATH") == NULL) {
 #ifdef USE_SYSLOG
-				syslog(LOG_INFO, "%s: %s: no path defined",
-						SYSLOGNAME, lname);
+				syslog(LOG_NOTICE, "%s: no path defined",
+					lname);
 #endif
 				fprintf(stderr,"%s: No path.\n", prog);
 				exit(ERREXIT);
@@ -165,8 +169,8 @@ int argc;
 			setgid(0);
 			execvp(argv[1], argv+1);
 #ifdef USE_SYSLOG
-			syslog(LOG_INFO, "%s: %s: couldn't execute program",
-						SYSLOGNAME, lname);
+			syslog(LOG_NOTICE, "%s: couldn't execute program",
+				lname);
 #endif
 			fprintf(stderr,"%s: can't execute %s\n", prog, argv[1]);
 			exit(ERREXIT);
@@ -181,8 +185,7 @@ int argc;
 	*/
 	fclose(fp);
 #ifdef USE_SYSLOG
-	syslog(LOG_INFO, "%s: %s: failed authorization test",
-					SYSLOGNAME, lname);
+	syslog(LOG_NOTICE, "%s: failed authorization test", lname);
 #endif
 	exit(ERREXIT);
 	/* NOTREACHED */
