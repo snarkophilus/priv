@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.35 1997/07/08 06:19:06 simonb Exp $	*/
+/*	$Id: priv.c,v 1.36 2004/02/09 04:34:22 simonb Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -48,7 +48,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.35 1997/07/08 06:19:06 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.36 2004/02/09 04:34:22 simonb Exp $";
 #endif /* not lint */
 
 #include <priv.h>
@@ -112,6 +112,12 @@ main(int argc, char **argv, char **envp)
 	}
 
 	pw = getpwuid(getuid());
+	if (pw == NULL) {
+		syslog(LOG_NOTICE, "%s: can't fetch password entry for uid %d",
+		    myname, getuid());
+		errx(EXIT_VAL, "can't fetch password entry for uid %d",
+		    getuid());
+	}
 	myname = xstrdup(pw->pw_name);	/* copy so we can use getpw* later */
 	strcpy(myfullname, pw->pw_name);
 	if ((logname = getlogin()) != NULL && strcmp(logname, myname)) {
