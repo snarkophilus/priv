@@ -46,7 +46,7 @@ priv: ${OBJ} @LIBOBJS@
 ${OBJ}: ${srcdir}/priv.h config.h 
 
 install: all ${srcdir}/priv.1 installdirs
-	${INSTALL_PROGRAM} -m ${BINMODE} priv ${bindir}/${binprefix}priv
+	${INSTALL_PROGRAM} -o root -m ${BINMODE} priv ${bindir}/${binprefix}priv
 	${INSTALL_DATA} ${srcdir}/priv.1 ${mandir}/${manprefix}priv.${manext}
 
 installdirs: mkinstalldirs
