@@ -1,8 +1,8 @@
-.\"	$Id: priv.1,v 1.6 1997/02/04 06:41:42 lukem Exp $
+.\"	$Id: priv.1,v 1.7 1997/02/17 01:45:02 lukem Exp $
 .\"
-.\" Copyright (c) 1996 Telstra Corporation Limited. All rights reserved.
-.\" Author: Simon Burge <simonb@telstra.com.au>
-.\" Man page converted to mandoc.old by Luke Mewburn <lukem@telstra.com.au>
+.\" Copyright (c) 1996, 1997 Werj. All rights reserved.
+.\" This code was contributed to Werj by Simon Burge <simonb@telstra.com.au>
+.\" and Luke Mewburn <lukem@connect.com.au>
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -14,7 +14,7 @@
 .\"    documentation and/or other materials provided with the distribution.
 .\" 3. All advertising materials mentioning features or use of this software
 .\"    must display the following acknowledgement:
-.\"	This product includes software developed by Simon Burge, Telstra Corp.
+.\"	This product includes software developed by Simon Burge, Werj.
 .\" 4. The name of the author may not be used to endorse or promote products
 .\"    derived from this software without specific prior written permission.
 .\"
@@ -29,7 +29,7 @@
 .\" OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\"
-.TH PRIV 1 "January 29 1997"
+.TH PRIV 1 "February 19 1997"
 .SH NAME
 priv \- execute commands as a different user
 .SH SYNOPSIS
@@ -87,6 +87,8 @@ F_BINPATH    0000200  allow any command in given path
 .IP
 F_GIVEREASON 0000400  ask for reason for running priv
 .IP
+F_CLEANENV   0001000  reset environment first 
+.IP
 F_SU         0100000  check su to an account
 .PD
 .PP
@@ -125,6 +127,75 @@ be taken as a directory from which any command is valid. If
 .I F_BASENAME
 is also given, the fully qualified path name won't be necessary.
 .PP
+The following security precautions are taken before
+.IR "execve" (3)ing
+.IR "command" :
+.TP
+1.
+All file descriptors except 0 (stdin), 1 (stdout) and 2 (stderr)
+are closed.
+.TP
+2.
+All signal handling is reset to the default handlers (refer to
+.IR "signal" (3)).
+.TP
+3.
+If
+.I F_CLEANENV
+is specified, all environment variables are discarded, and the
+following are defined:
+.IP
+.B "COLUMNS"
+and
+.BR "LINES" :
+set to the original values of 
+.B COLUMNS
+and
+.B LINES
+(respectively) if they only contain numbers.
+Otherwise discarded.
+.IP
+.BR "HOME" :
+set to the home directory of the target user.
+.IP
+.BR "IFS" :
+set to space, tab and newline.
+.IP
+.B "LOGNAME"
+and
+.BR "USER" :
+set to the username of the target user.
+.IP
+.BR "ORIG_HOME" ,
+.BR "ORIG_LOGNAME"
+and
+.BR "ORIG_USER" :
+set to the original values of
+.BR "HOME" ,
+.BR "LOGNAME"
+and
+.BR "USER"
+respectively.
+.IP
+.BR "PATH" :
+set to
+.IR "/bin:/usr/bin" .
+.IP
+.BR "PRIVCMD" :
+set to the command that was executed.
+.IP
+.BR "SHELL" :
+set to
+.IR "/bin/sh" .
+.IP
+.BR "TERM" :
+set to the original value of
+.B TERM
+if it only contains characters
+in the set [0-9a-zA-Z-+_.].
+Otherwise set to
+.IR "dumb" .
+.PP
 .I priv
 logs all activity via
 .IR "syslog" (3)
@@ -140,6 +211,8 @@ All failures contain the string
 The database directory.
 .PD
 .SH SEE ALSO
+.IR "execve" (3),
+.IR "signal" (3),
 .IR "su" (1)
 .SH BUGS
 When
@@ -155,16 +228,21 @@ Be aware of this when setting permissions on a program.
 Simon Burge <simonb@telstra.com.au> wrote this version
 of
 .I priv
-and 
-Luke Mewburn <lukem@connect.com.au> implemented the
-.I F_BINPATH
-functionality.
+with various enhancements provided by  
+Luke Mewburn <lukem@connect.com.au>.
 .SH HISTORY
 A command called
 .I priv
 was written by Ron Kuris in December 1988, and later modified by
 Dan Busarow, DPC Systems, in November 1991.
+.PP
 This version of
 .I priv
 bears little resemblence to the original command, but keeps the same
-name because I like it.
+name because Simon likes it.
+.PP
+Some features (such as
+.IR "F_CLEANENV" )
+were inspired by similar functionality in
+.IR super ,
+which was written by Will Deich <will@astro.caltech.edu>.

@@ -1,3 +1,4 @@
+/*	 $Id$	*/
 /*-
  * Copyright (c) 1990 The Regents of the University of California.
  * All rights reserved.
@@ -33,7 +34,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static const char sccsid[] = "from: @(#)strsep.c	5.4 (Berkeley) 1/26/91";*/
-static char *rcsid = "$Id: strsep.c,v 1.4 1995/06/15 00:08:31 jtc Exp $";
+static char *rcsid = "$Id: strsep.c,v 1.1 1997/01/19 03:02:17 lukem Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <string.h>

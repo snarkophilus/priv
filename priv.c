@@ -1,5 +1,6 @@
-/*	$Id: priv.c,v 1.28 1997/02/05 05:27:54 lukem Exp $
- *
+/*	$Id: priv.c,v 1.29 1997/02/17 01:45:04 lukem Exp $	*/
+
+/*
  *	priv	run a command as a given user
  *
  *	Loosely based on a command called priv by:
@@ -8,8 +9,9 @@
  */
 
 /*
- * Copyright (c) 1996 Telstra Corporation Limited. All rights reserved.
- * Author: Simon Burge <simonb@telstra.com.au>
+ * Copyright (c) 1996, 1997 Werj. All rights reserved.
+ * This code was contributed to Werj by Simon Burge <simonb@telstra.com.au>
+ * and Luke Mewburn <lukem@connect.com.au>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -21,7 +23,7 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *	This product includes software developed by Simon Burge, Telstra Corp.
+ *	This product includes software developed by Simon Burge, Werj.
  * 4. The name of the author may not be used to endorse or promote products
  *    derived from this software without specific prior written permission.
  *
@@ -46,79 +48,17 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.28 1997/02/05 05:27:54 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.29 1997/02/17 01:45:04 lukem Exp $";
 #endif /* not lint */
 
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/stat.h>
-
-#include <grp.h>
-#include <pwd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <unistd.h>
-
-#ifndef PRIVDIR
-#define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
-#endif
-
-#define DEFPATH		"/usr/bin:/bin"
-#define SYSLOGNAME	"priv"			/* name used with syslog */
-#define LOGBUFSIZ	2048 + 256		/* number of chars to log */
-#define MYNAMELEN	20			/* room for username+logname */
-#define EXIT_VAL	255			/* Error exit value */
-
-/* Flags for the "flags" field.  These are spread out for now in the
- * hope of making configuration files not _too_ hard to read...
- */
-#define F_SETUID	0000001		/* allow set-{g,u}id programs to run */
-#define F_SYMLINK	0000002		/* allow symlink as command run */
-#define F_BASENAME	0000004		/* only check basename of command */
-#define F_LOGLS		0000010		/* do an 'ls' of the command run */
-#define F_LOGCWD	0000020		/* log working directory */
-#define F_LOGCMD	0000040		/* log full command name */
-#define F_LOGTTY	0000100		/* log user's terminal */
-#define F_BINPATH	0000200		/* allow any in given path */
-#define F_GIVEREASON	0000400		/* ask for reason for running priv */
-#define F_SU		0100000		/* check su to an account */
-
-#ifndef S_ISLNK
-#define	S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
-#endif
-
-#ifndef __P
-#ifdef __STDC__
-#define __P(x)	x
-#else
-#define __P(x)	()
-#endif
-#endif
-
-int	 check_date __P((const char *));
-char	*build_log_message __P((const char *, char **, const char *,
-				unsigned int));
-void	 getreason __P((const char *, const char *));
-void	 splitpath __P((const char *, char **, char **));
-char	*which __P((const char *));
-char	*strsep __P((char **, const char *));
-char	*xstrdup __P((const char *));
-
-
-char	*progname;
-
+#include "priv.h"
 
 /*
  * main --
  *	main entry point
  */
 int
-main(argc, argv, envp)
-	int		argc;
-	char		**argv, **envp;
+main(int argc, char **argv, char **envp)
 {
 	struct passwd	*pw;
 	FILE		*fp;
@@ -131,8 +71,9 @@ main(argc, argv, envp)
 	char		*expire, *useras, *flags, *cmd;
 	char		*tmp, *suuser;
 	int		sudash;
-	int		maxfd, log_malformed, bad_line, i, ok;
+	int		log_malformed, bad_line, ok;
 	unsigned int	nflags;
+	int		sverr;
 
 
 	/* Open syslog connection. */
@@ -143,22 +84,17 @@ main(argc, argv, envp)
 #endif
 
 	/* Initialisation... */
-	if (argv == NULL || argv[0] == NULL) {
-		fprintf(stderr, "can't determine invocation name\n");
-		exit(EXIT_VAL);
-	}
+	if (argv == NULL || argv[0] == NULL)
+		errx(EXIT_VAL, "can't determine invocation name");
 	ok = log_malformed = 0;
 	newprog = argv[1];
+	realprog = NULL;
 	if (newprog != NULL) {
 		splitpath(newprog, &newprogdir, &newprogbase);
 		realprog = which(newprog);
 		if (realprog != NULL)
 			splitpath(realprog, &realprogdir, &realprogbase);
 	}
-
-	maxfd = getdtablesize();
-	for (i = 3; i < maxfd; i++)
-		close(i);
 
 	/* Check if we're running as su-<user> or su<user> */
 	suuser = NULL;
@@ -176,9 +112,8 @@ main(argc, argv, envp)
 			suuser = tmp;
 		}
 		else {
-			fprintf(stderr, "priv: invalid su<user> setup\n");
 			syslog(LOG_INFO, "priv: invalid su<user> setup");
-			exit(EXIT_VAL);
+			errx(EXIT_VAL, "invalid su<user> setup");
 		}
 	}
 
@@ -191,38 +126,34 @@ main(argc, argv, envp)
 		strcat(myfullname, ")");
 	}
 	if (strlen(PRIVDIR) + strlen(myname) >= sizeof(userf)) {
-		fprintf(stderr, "%s: database filename too long for user %s",
-		    progname, myname);
 		syslog(LOG_INFO, "%s: database filename too long", myname);
-		exit(EXIT_VAL);
+		errx(EXIT_VAL, "database filename too long for user %s",
+		    myname);
 	}
 	sprintf(userf, "%s/%s", PRIVDIR, myname);
 
 	/* Check command usage. */
 	if (suuser == NULL && argc < 2)  {
-		fprintf(stderr, "usage: %s command [arg [...]]\n", progname);
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
+		fprintf(stderr, "usage: %s command [arg [...]]\n", progname);
 		exit(EXIT_VAL);
 	}
 	if (   suuser != NULL
 	    && ! ((argc == 3 && (strcmp(argv[1], "-c") == 0)) || argc == 1) ) {
-		fprintf(stderr, "usage: %s [-c command]\n", progname);
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
+		fprintf(stderr, "usage: %s [-c command]\n", progname);
 		exit(EXIT_VAL);
 	}
 	if (realprog == NULL) {
-		fprintf(stderr, "%s: command %s not found.\n",
-		    progname, newprog);
 		syslog(LOG_NOTICE, "%s: not ok: command not found: %s",
 		    myfullname, newprog);
-		exit(EXIT_VAL);
+		errx(EXIT_VAL, "command %s not found", newprog);
 	}
 
 	/* Try and open the priv database for "myname". */
 	if ((fp = fopen(userf, "r")) == NULL) {
-		fprintf(stderr, "%s: no access.\n", progname);
 		syslog(LOG_NOTICE, "%s: not ok: no database", myname);
-		exit(EXIT_VAL);
+		errx(EXIT_VAL, "no access");
 	}
 
 	expire = NULL;
@@ -312,12 +243,12 @@ main(argc, argv, envp)
 	/* Check to see if the command was valid, and exit if not. */
 	if (!ok) {
 		if (suuser) {
-			fprintf(stderr, "%s: user not valid.\n", progname);
+			warnx("user not valid");
 			syslog(LOG_NOTICE, "%s: not ok: su to %s",
 			    myfullname, useras);
 		}
 		else {
-			fprintf(stderr, "%s: command not valid.\n", progname);
+			warnx("command not valid");
 			syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
 			    myfullname, newprog);
 		}
@@ -326,18 +257,16 @@ main(argc, argv, envp)
 
 	/* Check expiry date */
 	if (!check_date(expire)) {
-		fprintf(stderr, "%s: command expired.\n", progname);
 		syslog(LOG_NOTICE, "%s: not ok: %s expired: %s", myfullname,
 		    suuser ? "su" : "command", suuser ? useras : newprog);
-		exit(EXIT_VAL);
+		errx(EXIT_VAL, "command expired");
 	}
 
 	/* Does the user to run the command as exist? */
 	if ((pw = getpwnam(useras)) == NULL) {
-		fprintf(stderr, "%s: invalid user (%s) to run command as.\n",
-		    progname, useras);
 		syslog(LOG_NOTICE, "%s: not ok: user name %s not valid",
 		    myfullname, useras);
+		errx(EXIT_VAL, "invalid user (%s) to run command as", useras);
 	}
 
 	/* If necessary, ask for a reason for running priv */
@@ -346,60 +275,60 @@ main(argc, argv, envp)
 
 	/* If we're su-ing, now's the time */
 	if (suuser != NULL) {
-		char	*nargv[7];	/* for su,-,user,-c,cmd,(char *)0 */
-		int	nargc;
+		StringList	*nargv;
 
-		nargc = 0;
-		nargv[nargc++] = "su";
+		nargv = sl_init();
+		sl_add(nargv, "su");
 		if (sudash)
-			nargv[nargc++] = "-";
-		nargv[nargc++] = suuser;
+			sl_add(nargv, "-");
+		sl_add(nargv, suuser);
 		if (argc == 3) {
-			nargv[nargc++] = argv[1];
-			nargv[nargc++] = argv[2];
+			sl_add(nargv, argv[1]);
+			sl_add(nargv, argv[2]);
 		}
-		nargv[nargc++] = (char *)0;
+		sl_add(nargv, NULL);
 
 		setuid(0);	/* Set real & effective uid so "su" will work */
 		syslog(LOG_INFO, "su from %s to %s\n", myname, suuser);
-		execv("/bin/su", nargv);
-		fprintf(stderr,"%s: couldn't run su\n", progname);
+		envp = lockdown(nflags, realprog, pw, envp);
+		execve(PATH_SU, nargv->sl_str, envp);
+		sverr = errno;
 		syslog(LOG_NOTICE, "%s: not ok: could not su", myfullname);
-		exit(EXIT_VAL);
+		errno = sverr;
+		err(EXIT_VAL, "couldn't run su");
 	}
 
 	/* Set up the permissions */
 	if (setgid(pw->pw_gid) < 0) {
-		fprintf(stderr, "%s: setgid failed.\n", progname);
+		sverr = errno;
 		syslog(LOG_NOTICE, "%s: not ok: setgid failed: %m", myfullname);
-		exit(EXIT_VAL);
+		errno = sverr;
+		err(EXIT_VAL, "setgid failed");
 	}
 	if (initgroups(pw->pw_name, pw->pw_gid) < 0) {
-		fprintf(stderr, "%s: initgroups failed.\n", progname);
+		sverr = errno;
 		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m",
 		    myfullname);
-		exit(EXIT_VAL);
+		errno = sverr;
+		err(EXIT_VAL, "initgroups failed");
 	}
 	if (setuid(pw->pw_uid) < 0) {
-		fprintf(stderr, "%s: setuid failed.\n", progname);
+		sverr = errno;
 		syslog(LOG_NOTICE, "%s: not ok: setuid failed: %m", myfullname);
-		exit(EXIT_VAL);
+		errno = sverr;
+		err(EXIT_VAL, "setuid failed");
 	}
 
 	/* Check for sym-link */
 	if (!(nflags & F_SYMLINK)) {
 		struct stat	st;
 
-		if (lstat(realprog, &st) < 0) {
-			fprintf(stderr, "%s: internal error\n", progname);
-			perror(progname);
-			exit(EXIT_VAL);
-		}
+		if (lstat(realprog, &st) < 0)
+			err(EXIT_VAL, "can't lstat %s", realprog);
 		if (S_ISLNK(st.st_mode)) {
-			fprintf(stderr, "%s: command is sym-link\n", progname);
 			syslog(LOG_NOTICE, "%s: not ok: command is symlink: %s",
 			    myfullname, realprog);
-			exit(EXIT_VAL);
+			errx(EXIT_VAL, "command is sym-link");
 		}
 	}
 
@@ -407,55 +336,32 @@ main(argc, argv, envp)
 	if (!(nflags & F_SETUID)) {
 		struct stat	st;
 
-		if (stat(realprog, &st) < 0) {
-			fprintf(stderr, "%s: internal error\n", progname);
-			perror(progname);
-			exit(EXIT_VAL);
-		}
+		if (stat(realprog, &st) < 0)
+			err(EXIT_VAL, "can't stat %s", realprog);
 		if (st.st_mode & S_ISUID) {
-			fprintf(stderr, "%s: command is setuid\n", progname);
 			syslog(LOG_NOTICE, "%s: not ok: command is setuid: %s",
 			    myfullname, realprog);
-			exit(EXIT_VAL);
+			errx(EXIT_VAL, "command is setuid");
 		}
 		if (st.st_mode & S_ISGID) {
-			fprintf(stderr, "%s: command is setgid\n", progname);
 			syslog(LOG_NOTICE, "%s: not ok: command is setgid: %s",
 			    myfullname, realprog);
-			exit(EXIT_VAL);
+			errx(EXIT_VAL, "command is setgid");
 		}
 	}
 
 	/* All's well so far, get ready to execute the command. */
 	syslog(LOG_INFO, build_log_message(myfullname, argv + 1, realprog,
 	    nflags));
+	envp = lockdown(nflags, realprog, pw, envp);
 	execve(realprog, argv + 1, envp);
-	fprintf(stderr,"%s: can't execute %s\n", progname, newprog);
+	sverr = errno;
 	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
 	    myfullname, newprog);
+	errno = sverr;
+	err(EXIT_VAL, "can't execute %s", newprog);
 	exit(EXIT_VAL);
-}
-
-
-/*
- * check_date --
- *	Determine if given date (of form "YYYYMMDDhhmm") is after
- *	the current date. Returns 1 for yes, 0 for no
- */
-int
-check_date(date)
-	const char	*date;
-{
-	time_t		t;
-	struct tm	*tm;
-	char		buf[128];
-
-	(void)time(&t);
-	tm = localtime(&t);
-	sprintf(buf, "%04d%02d%02d%02d%02d",
-	    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-	    tm->tm_hour, tm->tm_min);
-	return(strcmp(date, buf) > 0);
+	/* NOTREACHED */
 }
 
 
@@ -465,11 +371,8 @@ check_date(date)
  *	Returns a pointer to a static char array
  */
 char *
-build_log_message(myname, argv, prog, flags)
-	const char	*myname;
-	char		**argv;
-	const char	*prog;
-	unsigned int	flags;
+build_log_message(const char *myname, char **argv,
+		const char *prog, unsigned int flags)
 {
 	static char	log[LOGBUFSIZ];
 	int		left;
@@ -498,15 +401,12 @@ build_log_message(myname, argv, prog, flags)
 	if (flags & F_LOGLS) {
 		struct stat	st;
 
-		if (stat(prog, &st) < 0) {
-			fprintf(stderr, "%s: internal error\n", prog);
-			perror(prog);
-			exit(EXIT_VAL);
-		}
+		if (stat(prog, &st) < 0)
+			err(EXIT_VAL, "can't stat %s", prog);
 		if (LOGBUFSIZ - strlen(log) - strlen(prog) - 66 > 0)
 			sprintf(log + strlen(log), " (ls=%4o:%d:%d:%d:%s)",
-			    st.st_mode % 010000, st.st_uid, st.st_gid,
-			    st.st_size, prog);
+			    (int)(st.st_mode % 010000), (int)st.st_uid,
+			    (int)st.st_gid, (int)st.st_size, prog);
 	}
 	if (flags & F_LOGCMD) {
 		if (LOGBUFSIZ - strlen(log) - strlen(prog) - 7 > 0)
@@ -526,14 +426,73 @@ build_log_message(myname, argv, prog, flags)
 
 
 /*
+ * check_date --
+ *	Determine if given date (of form "YYYYMMDDhhmm") is after
+ *	the current date. Returns 1 for yes, 0 for no
+ */
+int
+check_date(const char *date)
+{
+	time_t		t;
+	struct tm	*tm;
+	char		buf[128];
+
+	(void)time(&t);
+	tm = localtime(&t);
+	sprintf(buf, "%04d%02d%02d%02d%02d",
+	    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+	    tm->tm_hour, tm->tm_min);
+	return(strcmp(date, buf) > 0);
+}
+
+
+/*
+ * concatstr --
+ *	Take the list of strings, NULL terminated, concatenate them,
+ *	and return the result. Caller should release memory with free(3).
+ */
+char *
+concatstr(const char *first, ...)
+{
+	va_list		 ap;
+	size_t		 size;
+	const char	*cur;
+	char 		*res;
+
+	size = 0;
+	va_start(ap, first);
+	cur = first;
+	while (cur != NULL) {
+		size += strlen(cur);
+		cur = va_arg(ap, const char *);
+	}
+	va_end(ap);
+
+	if (size == 0)
+		return(xstrdup(""));
+	res = malloc(size + 1);
+	if (res == NULL)
+		err(EXIT_VAL, "can't allocate memory");
+
+	res[0] = '\0';
+	va_start(ap, first);
+	cur = first;
+	while (cur != NULL) {
+		strcat(res, cur);
+		cur = va_arg(ap, const char *);
+	}
+	va_end(ap);
+	return(res);
+}
+
+
+/*
  * getreason --
  *	Ask user for a reason, and give it
  *	If stdin isn't a terminal, log "NOREASON
  */
 void
-getreason(user, prog)
-	const char	*user;
-	const char	*prog;
+getreason(const char *user, const char *prog)
 {
 	static const char prompt[] = ">> ";
 
@@ -566,17 +525,74 @@ getreason(user, prog)
 
 
 /*
+ * lockdown --
+ *	Clean up environment, close any excess file descriptors,
+ *	reset signals.
+ */
+char **
+lockdown(int flags, char *prog, struct passwd *user, char **envp)
+{
+	StringList	*newenv;
+	char		*cur;
+	int		i;
+
+		/* Close file descriptors */
+#ifndef MAXFD
+#define MAXFD	(getdtablesize() - 1)
+#endif
+	for (i = 3; i <= MAXFD; i++)
+		close(i);
+
+		/* Reset signals */
+	for (i = 0; i < NSIG; i++)
+		(void) signal(i, SIG_DFL);
+
+		/* Nuke the environment, reset from scratch */
+	if (! (flags & F_CLEANENV))
+		return(envp);
+
+	newenv = sl_init();
+	if ((cur = getenv("COLUMNS")) != NULL &&
+	    (cur[strspn(cur, "0123456789")] == '\0'))
+		sl_add(newenv, concatstr("COLUMNS=", cur, NULL));
+	if ((cur = getenv("LINES")) != NULL &&
+	    (cur[strspn(cur, "0123456789")] == '\0'))
+		sl_add(newenv, concatstr("LINES=", cur, NULL));
+	sl_add(newenv, concatstr("HOME=", user->pw_dir, NULL));
+	sl_add(newenv, xstrdup("IFS=\" \t\n\""));
+	sl_add(newenv, concatstr("LOGNAME=", user->pw_name, NULL));
+	sl_add(newenv, concatstr("USER=", user->pw_name, NULL));
+	if ((cur = getenv("HOME")) != NULL)
+		sl_add(newenv, concatstr("ORIG_HOME=", cur, NULL));
+	if ((cur = getenv("LOGNAME")) != NULL)
+		sl_add(newenv, concatstr("ORIG_LOGNAME=", cur, NULL));
+	if ((cur = getenv("USER")) != NULL)
+		sl_add(newenv, concatstr("ORIG_USER=", cur, NULL));
+	sl_add(newenv, xstrdup("PATH=" DEFPATH));
+	sl_add(newenv, concatstr("PRIVCMD=", prog, NULL));
+	sl_add(newenv, xstrdup("SHELL=/bin/sh"));
+	if ((cur = getenv("TERM")) != NULL) {
+		for (i = 0; cur[i] != '\0'; i++)
+			if (!isalnum(cur[i]) && strchr("-+_.", cur[i]) == NULL)
+				break;
+		if (cur[i] == '\0')
+			sl_add(newenv, concatstr("TERM=", cur, NULL));
+	}
+
+	sl_add(newenv, NULL);
+	return(newenv->sl_str);
+}
+
+
+/*
  * splitpath --
  *	Break a path into dirname and basename components. If there
  *	is no leading directory, "" is returned for the directory.
- *	The resultant strings are allocated with malloc(3) and
+ *	The resultant strings are allocated with strdup(3) and
  *	should be released by the caller with free(3).
  */
 void
-splitpath(path, dir, base)
-	const char	 *path;
-	char		**dir;
-	char		**base;
+splitpath(const char *path, char **dir, char **base)
 {
 	char *o;
 
@@ -596,31 +612,6 @@ splitpath(path, dir, base)
 
 
 /*
- * xstrdup --
- *	strdup() the given string, and return the result.
- *	If the string is NULL, return NULL.
- *	Prints a message to stderr and exits with a non-zero
- *	return code if the memory couldn't be allocated.
- */
-char *
-xstrdup(str)
-	const char	*str;
-{
-	char *newstr;
-
-	if (str == NULL)
-		return NULL;
-
-	newstr = strdup(str);
-	if (newstr == NULL) {
-		fprintf(stderr, "%s: can't allocate memory\n", progname);
-		exit(EXIT_VAL);
-	}
-	return newstr;
-}
-
-
-/*
  * which --
  *	Determine the full pathname of the program to execute
  *	from the $PATH if necessary.
@@ -628,8 +619,7 @@ xstrdup(str)
  *	Code hacked from exec.c (execvp) from NetBSD (April '96)
  */
 char *
-which(name)
-	const char	*name;
+which(const char *name)
 {
 	char		*cur, *p, *path;
 	static char	buf[MAXPATHLEN * 2 + 1];
@@ -661,5 +651,27 @@ which(name)
 	}
 	if (path)
 		free(path);
-	return (NULL);
+	return(NULL);
+}
+
+
+/*
+ * xstrdup --
+ *	strdup() the given string, and return the result.
+ *	If the string is NULL, return NULL.
+ *	Prints a message to stderr and exits with a non-zero
+ *	return code if the memory couldn't be allocated.
+ */
+char *
+xstrdup(const char *str)
+{
+	char *newstr;
+
+	if (str == NULL)
+		return(NULL);
+
+	newstr = strdup(str);
+	if (newstr == NULL)
+		err(EXIT_VAL, "can't allocate memory");
+	return(newstr);
 }

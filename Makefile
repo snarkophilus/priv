@@ -1,5 +1,8 @@
+#	$Id$
+#
+
 PROG=	priv
-SRCS=	priv.c strsep.c
+SRCS=	priv.c err.c stringlist.c strsep.c
 OBJS=	${SRCS:.c=.o}
 
 BINMODE=4555
@@ -7,8 +10,8 @@ BINOWN=	root
 BINDIR=	/opt/local/sbin
 PRIVDIR=/opt/local/etc/priv
 
-CC=	gcc
-CFLAGS=	-O2 -pipe -DPRIVDIR=\"${PRIVDIR}\"
+CC=	cc
+CFLAGS=	-I. -O -DPRIVDIR=\"${PRIVDIR}\"
 
 ${PROG}:	${OBJS}
 	${CC} ${LFLAGS} ${OBJS} -o $@
