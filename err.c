@@ -1,5 +1,5 @@
 /*
- * $Id: err.c,v 1.3 1997/02/18 01:00:23 lukem Exp $
+ * $Id: err.c,v 1.1 1997/02/19 05:04:00 lukem Exp $
  */
 
 /*
@@ -32,6 +32,10 @@
  */
 
 #include "priv.h"
+
+#ifndef lint
+static char rcsid[] = "$Id: priv.c,v 1.32 1997/03/27 10:11:13 lukem Exp $";
+#endif /* not lint */
 
 void
 err(int eval, const char *fmt, ...)

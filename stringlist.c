@@ -31,9 +31,9 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char *rcsid = "$NetBSD: stringlist.c,v 1.2 1997/01/17 07:26:20 lukem Exp $";
-#endif /* LIBC_SCCS and not lint */
+#if !defined(lint)
+static char *rcsid = "$Id: stringlist.c,v 1.2 1997/01/17 07:26:20 lukem Exp $";
+#endif /* !lint */
 
 #include "priv.h"
 
