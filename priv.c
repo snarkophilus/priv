@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.9 1996/04/05 07:03:42 simonb Exp $
+/*	$Id: priv.c,v 1.10 1996/04/09 02:34:10 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.9 1996/04/05 07:03:42 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.10 1996/04/09 02:34:10 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -148,7 +148,7 @@ main(argc, argv, envp)
 		if (flags && strspn(flags, "01234567") != strlen(flags))
 			bad_line++;
 		/* Convert character flags to number */
-		nflags = flags ? strtoul(flags, NULL, 0) : 0;
+		nflags = flags ? strtoul(flags, NULL, 8) : 0;
 		if (!useras)
 			bad_line++;
 		if (bad_line) {
