@@ -2,7 +2,7 @@
  * priv  Run a command as superuser
  * by Ron Kuris, December 1988
  *
- * $Id: priv.c,v 1.1.1.1 1995/12/04 01:05:18 simonb Exp $
+ * $Id: priv.c,v 1.1.1.1 1995/12/10 04:44:42 simonb Exp $
  */
 /*
  *	access list added by Dan Busarow, DPC Systems, 11/22/91
@@ -69,13 +69,17 @@ int argc;
 		by the general public, authorized users will know how to
 		run it
 		***/
+#ifdef USE_SYSLOG
 		syslog(LOG_INFO, "%s: %s: incorrect usage", SYSLOGNAME, lname);
+#endif
 		exit(ERREXIT);
 	}
 	if ((fp = fopen(PRIVLIST, "r")) == NULL) {
 		fprintf(stderr, "Can't open database\n");
+#ifdef USE_SYSLOG
 		syslog(LOG_INFO, "%s: %s: can't open database",
 					SYSLOGNAME, lname);
+#endif
 		exit(ERREXIT);
 	}
 	while (fgets(buffer, LONGESTNAME, fp) != NULL) {
@@ -98,8 +102,10 @@ int argc;
 				/* default, no restriction.  this user is
 				   now root so you better trust them! */
 				ok = 1;
+#ifdef USE_SYSLOG
 				syslog(LOG_INFO, "%s: %s: full access",
 							SYSLOGNAME, lname);
+#endif
 			}
 			else {
 				while(fgets(buffer, LONGESTNAME, fp) != NULL) {
@@ -109,6 +115,7 @@ int argc;
 						break;
 					}
 				}
+#ifdef USE_SYSLOG
 				if (ok) {
 					syslog(LOG_INFO,
 						"%s: %s: command approved",
@@ -119,6 +126,7 @@ int argc;
 						"%s: %s: command not valid",
 						SYSLOGNAME, lname);
 				}
+#endif
 			}
 			if (!ok) {	 /* failed access list test */
 				fclose(fp);
@@ -126,8 +134,10 @@ int argc;
 			}
 #ifndef NEWPATH
 			if (getenv("PATH") == NULL) {
+#ifdef USE_SYSLOG
 				syslog(LOG_INFO, "%s: %s: no path defined",
 						SYSLOGNAME, lname);
+#endif
 				fprintf(stderr,"%s: No path.\n", prog);
 				exit(ERREXIT);
 			}
@@ -154,8 +164,10 @@ int argc;
 			setuid(0);
 			setgid(0);
 			execvp(argv[1], argv+1);
+#ifdef USE_SYSLOG
 			syslog(LOG_INFO, "%s: %s: couldn't execute program",
 						SYSLOGNAME, lname);
+#endif
 			fprintf(stderr,"%s: can't execute %s\n", prog, argv[1]);
 			exit(ERREXIT);
 		}
@@ -168,8 +180,10 @@ int argc;
 	   are not authorized to run it.
 	*/
 	fclose(fp);
+#ifdef USE_SYSLOG
 	syslog(LOG_INFO, "%s: %s: failed authorization test",
 					SYSLOGNAME, lname);
+#endif
 	exit(ERREXIT);
 	/* NOTREACHED */
 }
