@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.13 1996/05/16 03:40:21 simonb Exp $
+/*	$Id: priv.c,v 1.14 1996/05/16 11:31:25 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.13 1996/05/16 03:40:21 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.14 1996/05/16 11:31:25 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -130,7 +130,6 @@ main(argc, argv, envp)
 	pw = getpwuid(getuid());
 	myname = strdup(pw->pw_name);	/* copy so we can use getpw* later */
 	strcpy(myfullname, pw->pw_name);
-	logname = getlogin();
 	if ((logname = getlogin()) != NULL && strcmp(logname, myname)) {
 		strcat(myfullname, " (");
 		strcat(myfullname, logname);
