@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.15 1996/05/30 00:37:59 simonb Exp $
+/*	$Id: priv.c,v 1.16 1996/06/19 07:38:00 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.15 1996/05/30 00:37:59 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.16 1996/06/19 07:38:00 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -38,6 +38,7 @@ static char rcsid[] = "$Id: priv.c,v 1.15 1996/05/30 00:37:59 simonb Exp $";
 #define SYSLOGNAME	"priv"			/* name used with syslog */
 #define LOGBUFSIZ	256			/* number of characters to log */
 #define MYNAMELEN	20			/* room for user name (+ log name) */
+#define EXIT_VAL	255			/* Error exit value */
 
 /* Flags for the "flags" field.  These are spread out for now in the
  * hope of making configuration files not _too_ hard to read...
@@ -123,7 +124,7 @@ main(argc, argv, envp)
 		else {
 			fprintf(stderr, "priv: invalid su<user> setup\n");
 			syslog(LOG_INFO, "priv: invalid su<user> setup");
-			exit(1);
+			exit(EXIT_VAL);
 		}
 	}
 
@@ -141,14 +142,14 @@ main(argc, argv, envp)
 	if (suuser == NULL && argc < 2)  {
 		fprintf(stderr, "usage: %s command args\n", prog);
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
-		exit(1);
+		exit(EXIT_VAL);
 	}
 
 	/* Try and open the priv database for "myname". */
 	if ((fp = fopen(userf, "r")) == NULL) {
 		fprintf(stderr, "%s: no access.\n", prog);
 		syslog(LOG_NOTICE, "%s: not ok: no database", myname);
-		exit(1);
+		exit(EXIT_VAL);
 	}
 
 	/*
@@ -232,7 +233,7 @@ main(argc, argv, envp)
 			syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
 			    myfullname, newprog);
 		}
-		exit(1);
+		exit(EXIT_VAL);
 		/* NOTREACHED */
 	}
 
@@ -242,7 +243,7 @@ main(argc, argv, envp)
 		syslog(LOG_NOTICE, "%s: not ok: %s expired: %s",
 		    myfullname, suuser ? "su" : "command",
 		    suuser ? useras : newprog);
-		exit(1);
+		exit(EXIT_VAL);
 		/* NOTREACHED */
 	}
 
@@ -268,17 +269,17 @@ main(argc, argv, envp)
 	if (setgid(pw->pw_gid) < 0) {
 		fprintf(stderr, "%s: setgid failed.\n", prog);
 		syslog(LOG_NOTICE, "%s: not ok: setgid failed: %m", myfullname);
-		exit(1);
+		exit(EXIT_VAL);
 	}
 	if (initgroups(pw->pw_name, pw->pw_gid) < 0) {
 		fprintf(stderr, "%s: initgroups failed.\n", prog);
 		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m", myfullname);
-		exit(1);
+		exit(EXIT_VAL);
 	}
 	if (setuid(pw->pw_uid) < 0) {
 		fprintf(stderr, "%s: setuid failed.\n", prog);
 		syslog(LOG_NOTICE, "%s: not ok: setuid failed: %m", myfullname);
-		exit(1);
+		exit(EXIT_VAL);
 	}
 
 	realprog = which(newprog);
@@ -290,13 +291,13 @@ main(argc, argv, envp)
 		if (lstat(realprog, &st) < 0) {
 			fprintf(stderr, "%s: internal error\n", prog);
 			perror(prog);
-			exit(1);
+			exit(EXIT_VAL);
 		}
 		if (S_ISLNK(st.st_mode)) {
 			fprintf(stderr, "%s: command is sym-link\n", prog);
 			syslog(LOG_NOTICE, "%s: not ok: command is symlink: %s",
 			    myfullname, realprog);
-			exit(1);
+			exit(EXIT_VAL);
 		}
 	}
 
@@ -307,19 +308,19 @@ main(argc, argv, envp)
 		if (stat(realprog, &st) < 0) {
 			fprintf(stderr, "%s: internal error\n", prog);
 			perror(prog);
-			exit(1);
+			exit(EXIT_VAL);
 		}
 		if (st.st_mode & S_ISUID) {
 			fprintf(stderr, "%s: command is setuid\n", prog);
 			syslog(LOG_NOTICE, "%s: not ok: command is setuid: %s",
 			    myfullname, realprog);
-			exit(1);
+			exit(EXIT_VAL);
 		}
 		if (st.st_mode & S_ISGID) {
 			fprintf(stderr, "%s: command is setgid\n", prog);
 			syslog(LOG_NOTICE, "%s: not ok: command is setgid: %s",
 			    myfullname, realprog);
-			exit(1);
+			exit(EXIT_VAL);
 		}
 	}
 
@@ -329,7 +330,7 @@ main(argc, argv, envp)
 	fprintf(stderr,"%s: can't execute %s\n", prog, newprog);
 	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
 	    myfullname, newprog);
-	exit(1);
+	exit(EXIT_VAL);
 	/* NOTREACHED */
 }
 
@@ -386,7 +387,7 @@ build_log_message(myname, argv, prog, flags)
 		if (stat(prog, &st) < 0) {
 			fprintf(stderr, "%s: internal error\n", prog);
 			perror(prog);
-			exit(1);
+			exit(EXIT_VAL);
 		}
 		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
 		    " (ls=%4o:%d:%d:%d:%s)", st.st_mode % 010000,
