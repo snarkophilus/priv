@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.32 1997/03/27 10:11:13 lukem Exp $	*/
+/*	$Id: priv.c,v 1.33 1997/07/02 23:09:06 simonb Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -48,7 +48,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.32 1997/03/27 10:11:13 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.33 1997/07/02 23:09:06 simonb Exp $";
 #endif /* not lint */
 
 #include <priv.h>
@@ -453,7 +453,8 @@ build_log_message(const char *myname, char **argv,
 /*
  * check_date --
  *	Determine if given date (of form "YYYYMMDDhhmm") is after
- *	the current date. Returns 1 for yes, 0 for no
+ *	the current date. 0 always means success.  Returns 1 for yes,
+ *	0 for no
  */
 int
 check_date(const char *date)
@@ -462,6 +463,8 @@ check_date(const char *date)
 	struct tm	*tm;
 	char		buf[128];
 
+	if (strcmp(date, "0") == 0)
+		return(1);
 	(void)time(&t);
 	tm = localtime(&t);
 	sprintf(buf, "%04d%02d%02d%02d%02d",
