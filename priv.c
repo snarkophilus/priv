@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.5 1996/03/13 07:07:47 simonb Exp $
+/*	$Id: priv.c,v 1.6 1996/03/29 06:54:23 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.5 1996/03/13 07:07:47 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.6 1996/03/29 06:54:23 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -113,11 +113,6 @@ char	**argv, **envp;
 		 * the command name...  If we have a bad line, log an
 		 * error to syslog, but only once...
 		 */
-#if 1
-		if (strspn(expire, "0123456789") != strlen(expire) ||
-		    (flags && strspn(flags, "0123456789") != strlen(flags)) ||
-		    !useras) {
-#else
 		if (strspn(expire, "0123456789") != strlen(expire))
 			bad_line++;
 		if (flags && strspn(flags, "0123456789") != strlen(flags))
@@ -125,7 +120,6 @@ char	**argv, **envp;
 		if (!useras)
 			bad_line++;
 		if (bad_line) {
-#endif
 			if (!log_malformed) {
 				syslog(LOG_NOTICE,
 				    "%s: malformed line in database", myname);
