@@ -1,7 +1,7 @@
 .\" Copyright (c) 1996, Telstra Limited.  All Right Reserved.
 .\" Author: Simon Burge, <simonb@telstra.com.au>
 .\"
-.\"	$Id: priv.1,v 1.1 1996/03/13 07:08:01 simonb Exp $
+.\"	$Id: priv.1,v 1.2 1996/04/09 02:49:42 simonb Exp $
 .\"
 .Dd March 15, 1996
 .Dt PRIV 1
@@ -41,10 +41,10 @@ The flags field contains the following bits:
 .Bd -unfilled -offset indent -compact
 #define F_SETUID  00001 /* allow set-{g,u}id programs to run */
 #define F_SYMLINK 00002 /* allow symlink as command run */
-#define F_LOGLS   00001 /* do an 'ls' of the command run */
-#define F_LOGCWD  00001 /* log working directory */
-#define F_LOGCMD  00001 /* log full command name */
-#define F_LOGTTY  00001 /* log user's terminal */
+#define F_LOGLS   00010 /* do an 'ls' of the command run */
+#define F_LOGCWD  00020 /* log working directory */
+#define F_LOGCMD  00040 /* log full command name */
+#define F_LOGTTY  00100 /* log user's terminal */
 .Ed
 .Pp
 The command name may either be a fully qualified path name, or the
