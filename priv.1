@@ -1,0 +1,116 @@
+.\" Copyright (c) 1996, Telstra Limited.  All Right Reserved.
+.\" Author: Simon Burge, <simonb@telstra.com.au>
+.\" Man page converted to mandoc.old by Luke Mewburn <lukem@telstra.com.au>
+.\"
+.\"	$Id: priv.1,v 1.7 1996/05/16 11:22:47 simonb Exp $
+.\"
+.ds pn priv
+.\"
+.TH PRIV 1 "July 30 1996"
+.SH NAME
+priv \- execute commands as a different user
+.SH SYNOPSIS
+.B \*(pn
+.I command
+.RI [ arguments\c
+]
+.SH DESCRIPTION
+.I \*(pn
+allows authorised users to execute commands that run as different
+users.
+.PP
+When
+.I \*(pn
+is invoked, it reads a list of authorised commands from a database
+file called
+.B /usr/local/etc/priv/\fRusername\fP .
+Each line of the database file is a colon-seperated list of fields.
+The first two fields must be specified.
+Blank lines or lines beginning with a ``#'' character are ignored.
+The fields, in order, are:
+.PP
+.PD 0
+.IP
+expiry date
+.IP
+user name to run command as
+.IP
+flags
+.IP
+command name
+.PD
+.PP
+The format of the expiry date is YYYYMMDDhhmm.
+.PP
+The flags field is an integer that contains the following bits:
+.PP
+.PD 0
+.IP
+#define F_SETUID   0000001 /* allow set-{g,u}id programs to run */
+.IP
+#define F_SYMLINK  0000002 /* allow symlink as command run */
+.IP
+#define F_BASENAME 0000004 /* only check basename of command */
+.IP
+#define F_LOGLS    0000010 /* do an 'ls' of the command run */
+.IP
+#define F_LOGCWD   0000020 /* log working directory */
+.IP
+#define F_LOGCMD   0000040 /* log full command name */
+.IP
+#define F_LOGTTY   0000100 /* log user's terminal */
+.IP
+#define F_SU       0100000 /* check su to an account */
+.PD
+.PP
+The
+.I F_SU
+flags enables
+.I \*(pn
+to authorise an
+.IR "su" (8)
+command.
+In this case, the user name field is the user to
+.I su
+to, and the command name is ignored.
+There should be a link from either
+.I su<user>
+or
+.I su-<user>
+to perform an ``su user'' or ``su - user'' as required.
+.PP
+The command name may either be a fully qualified path name, or the
+command will be run from the user's path.
+If the command name is left blank, then the user is allowed to run
+.I any
+command.
+If there is a blank command line in the database file, it should
+be placed last.
+.PP
+.I \*(pn
+logs all activity via
+.IR "syslog" (3)
+using the
+.I LOG_AUTH
+facility.
+All failures contain the string
+.I \fR``\fPnot ok\fR''\fP .
+.SH FILES
+.PD 0
+.TP 20
+/usr/local/etc/priv
+The database directory.
+.PD
+.SH SEE ALSO
+.IR "su" (1)
+.SH AUTHOR
+Simon Burge, CPR Project, Telstra Limited.
+.SH HISTORY
+A command called
+.I \*(pn
+was written by Ron Kuris in December 1988, and later modified by
+Dan Busarow, DPC Systems, in November 1991.
+This version of
+.I \*(pn
+bears little resemblence to the original command, but keeps the same
+name because I like it.
