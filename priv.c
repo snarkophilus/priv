@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.10 1996/04/09 02:34:10 simonb Exp $
+/*	$Id: priv.c,v 1.11 1996/04/09 02:49:23 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.10 1996/04/09 02:34:10 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.11 1996/04/09 02:49:23 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -44,6 +44,7 @@ static char rcsid[] = "$Id: priv.c,v 1.10 1996/04/09 02:34:10 simonb Exp $";
  */
 #define F_SETUID	00001		/* allow set-{g,u}id programs to run */
 #define F_SYMLINK	00002		/* allow symlink as command run */
+#define F_BASENAME	00004		/* only check basename of command */
 #define F_LOGLS		00010		/* do an 'ls' of the command run */
 #define F_LOGCWD	00020		/* log working directory */
 #define F_LOGCMD	00040		/* log full command name */
@@ -54,6 +55,7 @@ static char rcsid[] = "$Id: priv.c,v 1.10 1996/04/09 02:34:10 simonb Exp $";
 #endif
 
 #ifdef ultrix
+char *rindex();
 char *strdup();
 char *strsep();
 #endif
@@ -75,7 +77,8 @@ main(argc, argv, envp)
 	char		userf[MAXPATHLEN];
 	char		buffer[BUFSIZ];
 	char		myfullname[MYNAMELEN];
-	char		*myname, *logname, *prog, *newprog, *realprog;
+	char		*myname, *logname;
+	char		*prog, *newprog, *realprog, *baseprog;
 	char		*expire, *useras, *flags, *cmd;
 	int		maxfd, log_malformed, bad_line, i, ok;
 	unsigned int	nflags;
@@ -92,6 +95,8 @@ main(argc, argv, envp)
 	ok = log_malformed = 0;
 	prog = argv[0];
 	newprog = argv[1];
+	if ((baseprog = rindex(newprog, '/')) != NULL)
+		baseprog++;
 	maxfd = getdtablesize();
 	for (i = 3; i < maxfd; i++)
 		close(i);
@@ -161,7 +166,20 @@ main(argc, argv, envp)
 		}
 
 		/* If the command is null, we can do anything. */
-		if (cmd == NULL || strcmp(cmd, newprog) == 0) {
+		if (cmd == NULL) {
+			ok = 1;
+			break;
+		}
+
+		/* Check for a full match */
+		if (strcmp(cmd, newprog) == 0) {
+			ok = 1;
+			break;
+		}
+
+		/* Check basename if necessary */
+		if ((nflags & F_BASENAME) && baseprog &&
+		    (strcmp(cmd, baseprog) == 0)) {
 			ok = 1;
 			break;
 		}
