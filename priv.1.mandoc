@@ -1,7 +1,7 @@
 .\" Copyright (c) 1996, Telstra Limited.  All Right Reserved.
 .\" Author: Simon Burge, <simonb@telstra.com.au>
 .\"
-.\"	$Id$
+.\"	$Id: priv.1,v 1.1 1996/03/13 07:08:01 simonb Exp $
 .\"
 .Dd March 15, 1996
 .Dt PRIV 1
@@ -34,8 +34,18 @@ flags
 command name
 .Ed
 .Pp
-The format of the expiry date is YYYYMMDDhhmm.  The flags field
-is current unused, and should be either set to ``0'' or left blank.
+The format of the expiry date is YYYYMMDDhhmm.
+.Pp
+The flags field contains the following bits:
+.Pp
+.Bd -unfilled -offset indent -compact
+#define F_SETUID  00001 /* allow set-{g,u}id programs to run */
+#define F_SYMLINK 00002 /* allow symlink as command run */
+#define F_LOGLS   00001 /* do an 'ls' of the command run */
+#define F_LOGCWD  00001 /* log working directory */
+#define F_LOGCMD  00001 /* log full command name */
+#define F_LOGTTY  00001 /* log user's terminal */
+.Ed
 .Pp
 The command name may either be a fully qualified path name, or the
 command will be run from the user's path.  If the command name is
