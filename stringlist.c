@@ -32,10 +32,12 @@
  */
 
 #if !defined(lint)
-static char *rcsid = "$Id: stringlist.c,v 1.2 1997/01/17 07:26:20 lukem Exp $";
+static char *rcsid = "$Id: stringlist.c,v 1.2 1997/03/27 10:13:18 lukem Exp $";
 #endif /* !lint */
 
-#include "priv.h"
+#include <priv.h>
+
+#ifndef HAVE_STRINGLIST_H
 
 #define _SL_CHUNKSIZE	20
 
@@ -114,3 +116,5 @@ sl_find(sl, name)
 
 	return NULL;
 }
+
+#endif /* !HAVE_STRINGLIST_H */
