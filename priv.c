@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.29 1997/02/17 01:45:04 lukem Exp $	*/
+/*	$Id: priv.c,v 1.30 1997/02/19 05:04:01 lukem Exp $	*/
 
 /*
  *	priv	run a command as a given user
@@ -48,7 +48,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.29 1997/02/17 01:45:04 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.30 1997/02/19 05:04:01 lukem Exp $";
 #endif /* not lint */
 
 #include "priv.h"
@@ -538,9 +538,9 @@ lockdown(int flags, char *prog, struct passwd *user, char **envp)
 
 		/* Close file descriptors */
 #ifndef MAXFD
-#define MAXFD	(getdtablesize() - 1)
+#define MAXFD	(sysconf(_SC_OPEN_MAX))
 #endif
-	for (i = 3; i <= MAXFD; i++)
+	for (i = 3; i < MAXFD; i++)
 		close(i);
 
 		/* Reset signals */
