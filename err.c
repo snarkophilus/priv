@@ -1,5 +1,5 @@
 /*
- * $Id: err.c,v 1.1 1997/02/19 05:04:00 lukem Exp $
+ * $Id: err.c,v 1.2 1997/03/27 10:13:18 lukem Exp $
  */
 
 /*
@@ -31,10 +31,10 @@
  * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "priv.h"
+#include <priv.h>
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.32 1997/03/27 10:11:13 lukem Exp $";
+static char rcsid[] = "$Id: err.c,v 1.2 1997/03/27 10:13:18 lukem Exp $";
 #endif /* not lint */
 
 void
