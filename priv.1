@@ -1,4 +1,4 @@
-.\"	$Id: priv.1,v 1.5 1997/01/29 03:10:23 lukem Exp $
+.\"	$Id: priv.1,v 1.6 1997/02/04 06:41:42 lukem Exp $
 .\"
 .\" Copyright (c) 1996 Telstra Corporation Limited. All rights reserved.
 .\" Author: Simon Burge <simonb@telstra.com.au>
@@ -141,6 +141,16 @@ The database directory.
 .PD
 .SH SEE ALSO
 .IR "su" (1)
+.SH BUGS
+When
+.I priv
+searchs the
+.B PATH
+environment variable for a command to run, the checks
+are made as the effective user that
+.I priv
+runs as (root).
+Be aware of this when setting permissions on a program.
 .SH AUTHORS
 Simon Burge <simonb@telstra.com.au> wrote this version
 of

@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.27 1997/02/04 06:41:44 lukem Exp $
+/*	$Id: priv.c,v 1.28 1997/02/05 05:27:54 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -46,7 +46,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.27 1997/02/04 06:41:44 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.28 1997/02/05 05:27:54 lukem Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -143,12 +143,17 @@ main(argc, argv, envp)
 #endif
 
 	/* Initialisation... */
+	if (argv == NULL || argv[0] == NULL) {
+		fprintf(stderr, "can't determine invocation name\n");
+		exit(EXIT_VAL);
+	}
 	ok = log_malformed = 0;
 	newprog = argv[1];
 	if (newprog != NULL) {
 		splitpath(newprog, &newprogdir, &newprogbase);
 		realprog = which(newprog);
-		splitpath(realprog, &realprogdir, &realprogbase);
+		if (realprog != NULL)
+			splitpath(realprog, &realprogdir, &realprogbase);
 	}
 
 	maxfd = getdtablesize();
@@ -195,7 +200,7 @@ main(argc, argv, envp)
 
 	/* Check command usage. */
 	if (suuser == NULL && argc < 2)  {
-		fprintf(stderr, "usage: %s command args\n", progname);
+		fprintf(stderr, "usage: %s command [arg [...]]\n", progname);
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
 		exit(EXIT_VAL);
 	}
@@ -203,6 +208,13 @@ main(argc, argv, envp)
 	    && ! ((argc == 3 && (strcmp(argv[1], "-c") == 0)) || argc == 1) ) {
 		fprintf(stderr, "usage: %s [-c command]\n", progname);
 		syslog(LOG_INFO, "%s: not ok: incorrect usage", myfullname);
+		exit(EXIT_VAL);
+	}
+	if (realprog == NULL) {
+		fprintf(stderr, "%s: command %s not found.\n",
+		    progname, newprog);
+		syslog(LOG_NOTICE, "%s: not ok: command not found: %s",
+		    myfullname, newprog);
 		exit(EXIT_VAL);
 	}
 
@@ -310,17 +322,14 @@ main(argc, argv, envp)
 			    myfullname, newprog);
 		}
 		exit(EXIT_VAL);
-		/* NOTREACHED */
 	}
 
 	/* Check expiry date */
 	if (!check_date(expire)) {
 		fprintf(stderr, "%s: command expired.\n", progname);
-		syslog(LOG_NOTICE, "%s: not ok: %s expired: %s",
-		    myfullname, suuser ? "su" : "command",
-		    suuser ? useras : newprog);
+		syslog(LOG_NOTICE, "%s: not ok: %s expired: %s", myfullname,
+		    suuser ? "su" : "command", suuser ? useras : newprog);
 		exit(EXIT_VAL);
-		/* NOTREACHED */
 	}
 
 	/* Does the user to run the command as exist? */
@@ -357,7 +366,6 @@ main(argc, argv, envp)
 		fprintf(stderr,"%s: couldn't run su\n", progname);
 		syslog(LOG_NOTICE, "%s: not ok: could not su", myfullname);
 		exit(EXIT_VAL);
-		/* NOTREACHED */
 	}
 
 	/* Set up the permissions */
@@ -426,7 +434,6 @@ main(argc, argv, envp)
 	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
 	    myfullname, newprog);
 	exit(EXIT_VAL);
-	/* NOTREACHED */
 }
 
 
