@@ -1,4 +1,4 @@
-.\"	$Id: priv.1,v 1.3 1996/12/20 04:24:14 simonb Exp $
+.\"	$Id: priv.1,v 1.4 1997/01/19 03:02:16 lukem Exp $
 .\"
 .\" Copyright (c) 1996 Telstra Corporation Limited. All rights reserved.
 .\" Author: Simon Burge <simonb@telstra.com.au>
@@ -29,7 +29,7 @@
 .\" OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\"
-.TH PRIV 1 "July 30 1996"
+.TH PRIV 1 "January 29 1997"
 .SH NAME
 priv \- execute commands as a different user
 .SH SYNOPSIS
@@ -83,12 +83,14 @@ F_LOGCMD   0000040  log full command name
 .IP
 F_LOGTTY   0000100  log user's terminal
 .IP
+F_BINPATH  0000200  allow any command in given path
+.IP
 F_SU       0100000  check su to an account
 .PD
 .PP
 The
 .I F_SU
-flags enables
+flag enables
 .I priv
 to authorise an
 .IR "su" (8)
@@ -114,6 +116,13 @@ command.
 If there is a blank command line in the database file, it should
 be placed last.
 .PP
+If the
+.I F_BINPATH
+flag is given, then the command name in the configuration file will
+be taken as a directory from which any command is valid. If
+.I F_BASENAME
+is also given, the fully qualified path name won't be necessary.
+.PP
 .I priv
 logs all activity via
 .IR "syslog" (3)
@@ -130,8 +139,14 @@ The database directory.
 .PD
 .SH SEE ALSO
 .IR "su" (1)
-.SH AUTHOR
-Simon Burge, CPR Project, Telstra Limited.
+.SH AUTHORS
+Simon Burge <simonb@telstra.com.au> wrote this version
+of
+.I priv
+and 
+Luke Mewburn <lukem@connect.com.au> implemented the
+.I F_BINPATH
+functionality.
 .SH HISTORY
 A command called
 .I priv
