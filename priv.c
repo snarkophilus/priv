@@ -1,174 +1,233 @@
-/*
- * priv  Run a command as superuser
- * by Ron Kuris, December 1988
+/*	$Id: priv.c,v 1.4 1996/03/12 14:03:10 simonb Exp $
  *
- * $Id: priv.c,v 1.3 1996/02/23 14:33:33 simonb Exp $
- */
-/*
- *	access list added by Dan Busarow, DPC Systems, 11/22/91
+ *	priv	run a command as a given user
  *
- *	files: /etc/priv.list
- *		a list of authorized user login names, one per line
- *		should be mode 400
+ *	Loosely based on a command called priv by:
+ *		Ron Kuris, Dec 1988.
+ *		Dan Busarow, DPC Systems, 22/11/91.
  *
- *	/usr/lib/priv/login_name
- *		a list of authorized commands, one per line
- *		this should also be 400
- *
- *	priv should be mode 4111, owned by root
+ *	Copyright (c) 1996, Telstra Limited.  All Right Reserved.
+ *	Author: Simon Burge, <simonb@telstra.com.au>
  */
 
+/*
+ *	One design decision completely different from the original
+ *	`priv' is to tell the user what is going wrong.  `priv' has
+ *	been redesigned to be used in a production environment as a
+ *	substitute for handing out the root password, so I guess it
+ *	should be a little bit helpful (but no too much :-).
+ */
+
+#ifndef lint
+static char rcsid[] = "$Id$";
+#endif /* not lint */
+
 #include <stdio.h>
-#include <pwd.h>
+#include <string.h>
 #include <syslog.h>
+#include <pwd.h>
+#include <sys/cdefs.h>
+#include <sys/time.h>
+#include <sys/param.h>
+
+#define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
+#define SYSLOGNAME	"priv"			/* name used with syslog */
+#define LOGBUFSIZ	120			/* number of characters to log */
 
 #ifdef __svr4__	/* Solaris 2 */
 # define index strchr
 #endif
 
-#define PRIVLIST	"/usr/local/etc/priv/priv.list"
-#define ACCESSDIR	"/usr/local/etc/priv/"
-#define LONGESTNAME	64
-#define ERREXIT		1
+#ifdef ultrix
+char *strdup();
+#endif
 
-#define SYSLOGNAME	"priv"		/* name used in syslog entries */
-
-/* If NEWPATH isn't defined, then PATH is taken from calling program.    */
-/* If PATHOK appears next to the users login name in the priv.list file, */
-/* then the user gets to use their own path.                             */
-#define NEWPATH "PATH=/bin:/etc:/usr/bin:/usr/ucb:/usr/local/bin"
-
-extern unsigned short getuid();
-extern char *malloc();
+static	int check_date __P((const char *));
+static	char *build_log_message __P((const char *, char **));
 
 main(argc, argv, envp)
-char **argv, **envp;
-int argc;
+int	argc;
+char	**argv, **envp;
 {
-	struct passwd *pw;
-	FILE *fp;
-	char aList[64], buffer[LONGESTNAME+1], *lname, *prog;
-	short i, j, ok;
-#ifdef NEWPATH
-	char *p;
-	int pathok = 0;
-#endif /* ! NEWPATH */
+	struct	passwd *pw;
+	FILE	*fp;
+	char	userf[MAXPATHLEN];
+	char	buffer[BUFSIZ];
+	char	*myname, *prog, *newprog;
+	char	*expire, *useras, *flags, *cmd;
+	int	maxfd, log_malformed, bad_line, i, ok;
 
-#ifdef LOG_AUTHPRIV
-	openlog(SYSLOGNAME, 0, LOG_AUTHPRIV);
-#elif defined(LOG_AUTH)
+
+	/* Open syslog connection. */
+#ifdef LOG_AUTH
 	openlog(SYSLOGNAME, 0, LOG_AUTH);
 #else
 	openlog(SYSLOGNAME);
 #endif
 
-	prog = argv[0]; /* store program name */
-	pw = getpwuid(getuid());
-	lname = pw->pw_name;
+	/* Initialisation... */
+	ok = log_malformed = 0;
+	prog = argv[0];
+	newprog = argv[1];
+	maxfd = getdtablesize();
+	for (i = 3; i < maxfd; i++)
+		close(i);
 
+	pw = getpwuid(getuid());
+	myname = strdup(pw->pw_name);	/* copy so we can use getpw* later */
+	snprintf(userf, MAXPATHLEN, "%s/%s", PRIVDIR, myname);
+
+	/* Check command usage. */
 	if (argc < 2)  {
-		/***
-		fprintf(stderr, "Usage: %s command args\n", prog);
-		no error messages, this program is not intended for use
-		by the general public, authorized users will know how to
-		run it
-		***/
-		syslog(LOG_NOTICE, "%s: incorrect usage", lname);
-		exit(ERREXIT);
+		fprintf(stderr, "usage: %s command args\n", prog);
+		syslog(LOG_INFO, "%s: not ok: incorrect usage", myname);
+		exit(1);
 	}
-	if ((fp = fopen(PRIVLIST, "r")) == NULL) {
-		fprintf(stderr, "%s: Can't open database\n", prog);
-		syslog(LOG_NOTICE, "%s: can't open database", lname);
-		exit(ERREXIT);
+
+	/* Try and open the priv database for "myname". */
+	if ((fp = fopen(userf, "r")) == NULL) {
+		fprintf(stderr, "%s: no access.\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: no database", myname);
+		exit(1);
 	}
-	while (fgets(buffer, LONGESTNAME, fp) != NULL) {
-		buffer[strlen(buffer)-1] = '\0'; /* zap newline */
-		p = (char *)index(buffer, ' ');
-#ifdef NEWPATH
-		if (p)
-			*p++ = '\0';
-#endif /* ! NEWPATH */
-		if (!strcmp(lname, buffer)) {
-			fclose(fp);
-#ifdef NEWPATH
-			if (p && !strcmp(p, "PATHOK"))
-				pathok = 1;
-#endif /* ! NEWPATH */
-			ok = 0;
-			strcpy(aList, ACCESSDIR);
-			strcat(aList, lname);
-			if ((fp = fopen(aList, "r")) == NULL) {
-				/* default, no restriction.  this user is
-				   now root so you better trust them! */
-				ok = 1;
-				syslog(LOG_NOTICE, "%s: full access", lname);
+
+	/*
+	 * Scan through the file, looking for a blank command or
+	 * a command that matches our command line.
+	 */
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		buffer[strlen(buffer) - 1] = '\0'; /* zap newline */
+		if (!*buffer || *buffer == '#')
+			continue;
+		bad_line = 0;
+
+		expire = strtok(buffer, ":");
+		useras = strtok(NULL, ":");
+		flags = strtok(NULL, ":");
+		cmd = strtok(NULL, ":");
+
+		/*
+		 * Check for a bad data line.  The expiry date and flags
+		 * should be numeric.  The user name field is checked
+		 * later on with getpwnam(), and who gives a damn about
+		 * the command name...  If we have a bad line, log an
+		 * error to syslog, but only once...
+		 */
+#if 1
+		if (strspn(expire, "0123456789") != strlen(expire) ||
+		    (flags && strspn(flags, "0123456789") != strlen(flags)) ||
+		    !useras) {
+#else
+		if (strspn(expire, "0123456789") != strlen(expire))
+			bad_line++;
+		if (flags && strspn(flags, "0123456789") != strlen(flags))
+			bad_line++;
+		if (!useras)
+			bad_line++;
+		if (bad_line) {
+#endif
+			if (!log_malformed) {
+				syslog(LOG_NOTICE,
+				    "%s: malformed line in database", myname);
+				log_malformed++;
 			}
-			else {
-				while(fgets(buffer, LONGESTNAME, fp) != NULL) {
-					buffer[strlen(buffer)-1] = 0;
-					if(!strcmp(buffer, argv[1])) {
-						ok = 1;
-						break;
-					}
-				}
-				if (ok) {
-					syslog(LOG_NOTICE,
-						"%s: command approved", lname);
-				}
-				else {
-					syslog(LOG_NOTICE,
-						"%s: command not valid", lname);
-				}
-			}
-			if (!ok) {	 /* failed access list test */
-				fclose(fp);
-				exit(ERREXIT);
-			}
-#ifndef NEWPATH
-			if (getenv("PATH") == NULL) {
-				syslog(LOG_NOTICE, "%s: no path defined",
-					lname);
-				fprintf(stderr,"%s: No path.\n", prog);
-				exit(ERREXIT);
-			}
-#else /* NEWPATH */
-			if (!(pathok && getenv("PATH"))) {
-				for (i=0; envp[i]; i++) {
-					if (!strncmp("PATH=", envp[i], 5)) {
-						envp[i] = NEWPATH;
-						break;
-					}
-				}
-				if (!envp[i]) { /* no PATH, add it to environ */
-					extern char **environ;
-					char **newenv = (char **)malloc((i + 2)
-							* sizeof(char *));
-					for (j = 0; j < i; j++)
-						newenv[j] = envp[j];
-					newenv[j] = NEWPATH;
-					newenv[j+1] = NULL;
-					environ = newenv;
-				}
-			}
-#endif /* NEWPATH */
-			setuid(0);
-			setgid(0);
-			execvp(argv[1], argv+1);
-			syslog(LOG_NOTICE, "%s: couldn't execute program",
-				lname);
-			fprintf(stderr,"%s: can't execute %s\n", prog, argv[1]);
-			exit(ERREXIT);
+			continue;
+		}
+
+		/* If the command is null, we can do anything. */
+		if (cmd == NULL || strcmp(cmd, newprog) == 0) {
+			ok = 1;
+			break;
 		}
 	}
-	/* failed authorization test */
-	/* originally there was an error message here saying that the
-	   user is not authorized to run priv.  I removed it on the
-	   assumption that a program which seems to do nothing is a lot
-	   less likely to get hacked on than one which tells you that you
-	   are not authorized to run it.
-	*/
-	fclose(fp);
-	syslog(LOG_NOTICE, "%s: failed authorization test", lname);
-	exit(ERREXIT);
+
+	/* Check to see if the command was valid, and exit if not. */
+	if (!ok) {
+		fprintf(stderr, "%s: command not valid.\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: command not valid",
+		    myname);
+		exit(1);
+		/* NOTREACHED */
+	}
+
+	/* Check expiry date */
+	if (!check_date(expire)) {
+		fprintf(stderr, "%s: command expired.\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: command expired: %s",
+		    myname, newprog);
+		exit(1);
+		/* NOTREACHED */
+	}
+
+	/* Does the user to run the command as exist? */
+	if ((pw = getpwnam(useras)) == NULL) {
+		fprintf(stderr, "%s: invalid user (%s) to run command as.\n",
+		    prog, useras);
+		syslog(LOG_NOTICE, "%s: not ok: user name %s not valid",
+		    myname, useras);
+	}
+
+	/* Set up the permissions */
+	if (setgid(pw->pw_gid) < 0) {
+		fprintf(stderr, "%s: setgid failed.\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: setgid failed: %m", myname);
+		exit(1);
+	}
+	if (initgroups(pw->pw_name, pw->pw_gid) < 0) {
+		fprintf(stderr, "%s: initgroups failed.\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: initgroups failed: %m", myname);
+		exit(1);
+	}
+	if (setuid(pw->pw_uid) < 0) {
+		fprintf(stderr, "%s: setuid failed.\n", prog);
+		syslog(LOG_NOTICE, "%s: not ok: setuid failed: %m", myname);
+		exit(1);
+	}
+
+	/* All's well, execute the command. */
+	syslog(LOG_INFO, build_log_message(myname, argv + 1));
+	execvp(newprog, argv + 1);
+	fprintf(stderr,"%s: can't execute %s\n", prog, newprog);
+	syslog(LOG_NOTICE, "%s: not ok: could not execute: %s",
+	    myname, newprog);
+	exit(1);
 	/* NOTREACHED */
+}
+
+static int
+check_date(date)
+	const	char *date;
+{
+	time_t	t;
+	struct	tm *tm;
+	char	buf[128];
+
+	(void)time(&t);
+	tm = localtime(&t);
+	snprintf(buf, sizeof(buf), "%04d%02d%02d%02d%02d",
+	    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+	    tm->tm_hour, tm->tm_min);
+	return(strcmp(date, buf) > 0);
+}
+
+
+static char *
+build_log_message(myname, argv)
+	const	char *myname;
+	char	**argv;
+{
+	static	char log[LOGBUFSIZ];
+	int	left;
+
+	sprintf(log, "%s:", myname);
+	left = LOGBUFSIZ - strlen(log) - 2;
+	while (*argv) {
+		strcat(log, " ");
+		strncat(log, *argv, left);
+		left -= strlen(*argv) + 1;
+		argv++;
+		if (left < 2)
+			break;
+	}
+	return(log);
 }
