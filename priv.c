@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.12 1996/05/09 05:45:02 simonb Exp $
+/*	$Id: priv.c,v 1.13 1996/05/16 03:40:21 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.12 1996/05/09 05:45:02 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.13 1996/05/16 03:40:21 simonb Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -192,11 +192,12 @@ main(argc, argv, envp)
 		}
 
 		/* If su'ing, check this first */
-		if (nflags & F_SU) {
-			if (suuser && strcmp(suuser, useras) == 0) {
+		if (suuser) {
+			if (nflags & F_SU && strcmp(suuser, useras) == 0) {
 				ok = 1;
 				break;
 			}
+			/* Try again...  */
 			continue;
 		}
 
@@ -222,9 +223,16 @@ main(argc, argv, envp)
 
 	/* Check to see if the command was valid, and exit if not. */
 	if (!ok) {
-		fprintf(stderr, "%s: command not valid.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
-		    myfullname, newprog);
+		if (suuser) {
+			fprintf(stderr, "%s: command not valid.\n", prog);
+			syslog(LOG_NOTICE, "%s: not ok: command not valid: %s",
+			    myfullname, newprog);
+		}
+		else {
+			fprintf(stderr, "%s: user not valid.\n", prog);
+			syslog(LOG_NOTICE, "%s: not ok: su to %s",
+			    myfullname, useras);
+		}
 		exit(1);
 		/* NOTREACHED */
 	}
@@ -232,8 +240,9 @@ main(argc, argv, envp)
 	/* Check expiry date */
 	if (!check_date(expire)) {
 		fprintf(stderr, "%s: command expired.\n", prog);
-		syslog(LOG_NOTICE, "%s: not ok: command expired: %s",
-		    myfullname, newprog);
+		syslog(LOG_NOTICE, "%s: not ok: %s expired: %s",
+		    myfullname, suuser ? "su" : "command",
+		    suuser ? useras : newprog);
 		exit(1);
 		/* NOTREACHED */
 	}
