@@ -1,4 +1,4 @@
-/*	 $Id: strsep.c,v 1.2 1997/02/19 05:04:03 lukem Exp $	*/
+/*	 $Id: strsep.c,v 1.3 1997/03/27 10:13:18 lukem Exp $	*/
 /*-
  * Copyright (c) 1990 The Regents of the University of California.
  * All rights reserved.
@@ -33,10 +33,16 @@
  */
 
 #if !defined(lint)
-static char *rcsid = "$Id: strsep.c,v 1.2 1997/02/19 05:04:03 lukem Exp $";
+static char *rcsid = "$Id: strsep.c,v 1.3 1997/03/27 10:13:18 lukem Exp $";
 #endif /* !lint */
 
+#include <config.h>
+
+#ifdef HAVE_STRING_H
 #include <string.h>
+#else
+#include <strings.h>
+#endif
 
 /*
  * Get next token from string *stringp, where tokens are nonempty
