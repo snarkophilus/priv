@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.26 1997/01/29 03:38:03 lukem Exp $
+/*	$Id: priv.c,v 1.27 1997/02/04 06:41:44 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -46,7 +46,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.26 1997/01/29 03:38:03 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.27 1997/02/04 06:41:44 lukem Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -264,6 +264,10 @@ main(argc, argv, envp)
 			/* Try again...  */
 			continue;
 		}
+
+		/* Skip F_SU lines otherwise (i.e, not su-ing) */
+		if (nflags & F_SU)
+			continue;
 
 		/* If the command is null, we can do anything. */
 		if (cmd == NULL) {
