@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.21 1996/10/28 03:55:18 simonb Exp $
+/*	$Id: priv.c,v 1.22 1996/12/20 04:24:15 simonb Exp $
  *
  *	priv	run a command as a given user
  *
@@ -46,24 +46,26 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.21 1996/10/28 03:55:18 simonb Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.22 1996/12/20 04:24:15 simonb Exp $";
 #endif /* not lint */
 
-#include <stdio.h>
-#include <string.h>
-#include <syslog.h>
-#include <pwd.h>
-#include <paths.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <sys/types.h>
 #include <sys/param.h>
-#include <sys/cdefs.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 
+#include <grp.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+
+#define DEFPATH		"/usr/bin:/bin"
 #define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
 #define SYSLOGNAME	"priv"			/* name used with syslog */
-#define LOGBUFSIZ	256			/* number of characters to log */
+#define LOGBUFSIZ	2048 + 256		/* number of characters to log */
 #define MYNAMELEN	20			/* room for user name (+ log name) */
 #define EXIT_VAL	255			/* Error exit value */
 
@@ -79,17 +81,14 @@ static char rcsid[] = "$Id: priv.c,v 1.21 1996/10/28 03:55:18 simonb Exp $";
 #define F_LOGTTY	0000100		/* log user's terminal */
 #define F_SU		0100000		/* check su to an account */
 
-#ifdef __svr4__
-char *strsep();
-#endif
-
 #ifndef S_ISLNK
 #define	S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
 #endif
 
-static	int check_date __P((const char *));
-static	char *build_log_message __P((const char *, char **, const char *, unsigned int));
-static	char *which __P((const char *));
+int	check_date(const char *);
+char   *build_log_message(const char *, char **, const char *, unsigned int);
+char   *which(const char *);
+char   *strsep(char **, const char *);
 
 int
 main(argc, argv, envp)
@@ -159,7 +158,13 @@ main(argc, argv, envp)
 		strcat(myfullname, logname);
 		strcat(myfullname, ")");
 	}
-	snprintf(userf, MAXPATHLEN, "%s/%s", PRIVDIR, myname);
+	if (strlen(PRIVDIR) + strlen(myname) >= sizeof(userf)) {
+		fprintf(stderr, "%s: database filename too long for user %s",
+		    prog, myname);
+		syslog(LOG_INFO, "%s: database filename too long", myname);
+		exit(EXIT_VAL);
+	}
+	sprintf(userf, "%s/%s", PRIVDIR, myname);
 
 	/* Check command usage. */
 	if (suuser == NULL && argc < 2)  {
@@ -181,6 +186,9 @@ main(argc, argv, envp)
 		exit(EXIT_VAL);
 	}
 
+	expire = NULL;
+	useras = NULL;
+	nflags = 0;
 	/*
 	 * Scan through the file, looking for a blank command or
 	 * a command that matches our command line.
@@ -379,7 +387,7 @@ main(argc, argv, envp)
 	/* NOTREACHED */
 }
 
-static int
+int
 check_date(date)
 	const char	*date;
 {
@@ -389,14 +397,14 @@ check_date(date)
 
 	(void)time(&t);
 	tm = localtime(&t);
-	snprintf(buf, sizeof(buf), "%04d%02d%02d%02d%02d",
+	sprintf(buf, "%04d%02d%02d%02d%02d",
 	    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
 	    tm->tm_hour, tm->tm_min);
 	return(strcmp(date, buf) > 0);
 }
 
 
-static char *
+char *
 build_log_message(myname, argv, prog, flags)
 	const char	*myname;
 	char		**argv;
@@ -406,7 +414,7 @@ build_log_message(myname, argv, prog, flags)
 	static char	log[LOGBUFSIZ];
 	int		left;
 
-	sprintf(log, "%s", myname);
+	sprintf(log, "%.*s", LOGBUFSIZ - 1, myname);
 	if (flags & F_LOGTTY) {
 		char	*tty;
 
@@ -415,15 +423,16 @@ build_log_message(myname, argv, prog, flags)
 			tty = "NOTTY";
 		if (strncmp(tty, "/dev/", 5) == 0)
 			tty += 5;
-		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
-		    " (%s)", tty);
+
+		if (LOGBUFSIZ - strlen(log) - strlen(tty) - 4 > 0)
+			sprintf(log + strlen(log), " (%s)", tty);
 	}
 	if (flags & F_LOGCWD) {
 		char	*pwd;
 
-		pwd = getcwd(NULL, LOGBUFSIZ - strlen(log) - 2);
-		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
-		    " (pwd=%s)", pwd);
+		pwd = getcwd(NULL, LOGBUFSIZ - strlen(log) - 7);
+		if (LOGBUFSIZ - strlen(log) - strlen(pwd) - 7 > 0)
+			sprintf(log + strlen(log), " (pwd=%s)", pwd);
 		free(pwd);
 	}
 	if (flags & F_LOGLS) {
@@ -434,23 +443,23 @@ build_log_message(myname, argv, prog, flags)
 			perror(prog);
 			exit(EXIT_VAL);
 		}
-		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
-		    " (ls=%4o:%d:%d:%d:%s)", st.st_mode % 010000,
-		    st.st_uid, st.st_gid, st.st_size, prog);
+		if (LOGBUFSIZ - strlen(log) - strlen(prog) - 66 > 0)
+			sprintf(log + strlen(log), " (ls=%4o:%d:%d:%d:%s)",
+			    st.st_mode % 010000, st.st_uid, st.st_gid,
+			    st.st_size, prog);
 	}
 	if (flags & F_LOGCMD) {
-		snprintf(log + strlen(log), LOGBUFSIZ - strlen(log) - 2,
-		    " (cmd=%s)", prog);
+		if (LOGBUFSIZ - strlen(log) - strlen(prog) - 7 > 0)
+			sprintf(log + strlen(log), " (cmd=%s)", prog);
 	}
-	strcat(log, ":");
 	left = LOGBUFSIZ - strlen(log) - 2;
-	while (*argv) {
+	if (left > 0)
+		strcat(log, ":");
+	while (*argv && left > 0) {
 		strcat(log, " ");
 		strncat(log, *argv, left);
 		left -= strlen(*argv) + 1;
 		argv++;
-		if (left < 2)
-			break;
 	}
 	return(log);
 }
@@ -458,7 +467,7 @@ build_log_message(myname, argv, prog, flags)
 
 /* Below code hacked from exec.c (execvp) from NetBSD (April '96) */
 
-static char *
+char *
 which(name)
 	const char	*name;
 {
@@ -471,7 +480,7 @@ which(name)
 
 	/* Get the path we're searching. */
 	if (!(path = getenv("PATH")))
-		path = _PATH_DEFPATH;
+		path = DEFPATH;
 	cur = path = strdup(path);
 
 	while ((p = strsep(&cur, ":")) != NULL) {

@@ -1,4 +1,4 @@
-.\"	$Id: priv.1,v 1.2 1996/07/31 07:23:34 lukem Exp $
+.\"	$Id: priv.1,v 1.3 1996/12/20 04:24:14 simonb Exp $
 .\"
 .\" Copyright (c) 1996 Telstra Corporation Limited. All rights reserved.
 .\" Author: Simon Burge <simonb@telstra.com.au>
@@ -29,23 +29,21 @@
 .\" OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\"
-.ds pn priv
-.\"
 .TH PRIV 1 "July 30 1996"
 .SH NAME
 priv \- execute commands as a different user
 .SH SYNOPSIS
-.B \*(pn
+.B priv
 .I command
 .RI [ arguments\c
 ]
 .SH DESCRIPTION
-.I \*(pn
+.I priv
 allows authorised users to execute commands that run as different
 users.
 .PP
 When
-.I \*(pn
+.I priv
 is invoked, it reads a list of authorised commands from a database
 file called
 .B /usr/local/etc/priv/\fRusername\fP.
@@ -71,27 +69,27 @@ The flags field is an integer that contains the following bits:
 .PP
 .PD 0
 .IP
-#define F_SETUID   0000001 /* allow set-{g,u}id programs to run */
+F_SETUID   0000001  allow set-[gu]id programs to run
 .IP
-#define F_SYMLINK  0000002 /* allow symlink as command run */
+F_SYMLINK  0000002  allow symlink as command run
 .IP
-#define F_BASENAME 0000004 /* only check basename of command */
+F_BASENAME 0000004  only check basename of command
 .IP
-#define F_LOGLS    0000010 /* do an 'ls' of the command run */
+F_LOGLS    0000010  do an 'ls' of the command run
 .IP
-#define F_LOGCWD   0000020 /* log working directory */
+F_LOGCWD   0000020  log working directory
 .IP
-#define F_LOGCMD   0000040 /* log full command name */
+F_LOGCMD   0000040  log full command name
 .IP
-#define F_LOGTTY   0000100 /* log user's terminal */
+F_LOGTTY   0000100  log user's terminal
 .IP
-#define F_SU       0100000 /* check su to an account */
+F_SU       0100000  check su to an account
 .PD
 .PP
 The
 .I F_SU
 flags enables
-.I \*(pn
+.I priv
 to authorise an
 .IR "su" (8)
 command.
@@ -116,7 +114,7 @@ command.
 If there is a blank command line in the database file, it should
 be placed last.
 .PP
-.I \*(pn
+.I priv
 logs all activity via
 .IR "syslog" (3)
 using the
@@ -136,10 +134,10 @@ The database directory.
 Simon Burge, CPR Project, Telstra Limited.
 .SH HISTORY
 A command called
-.I \*(pn
+.I priv
 was written by Ron Kuris in December 1988, and later modified by
 Dan Busarow, DPC Systems, in November 1991.
 This version of
-.I \*(pn
+.I priv
 bears little resemblence to the original command, but keeps the same
 name because I like it.
