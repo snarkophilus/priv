@@ -4,11 +4,11 @@ OBJS=	${SRCS:.c=.o}
 
 BINMODE=4555
 BINOWN=	root
-BINDIR=	/opt/local/bin
+BINDIR=	/opt/local/sbin
 PRIVDIR=/opt/local/etc/priv
 
-CC=	gcc
-CFLAGS=	-O2 -Wall -DPRIVDIR=\"${PRIVDIR}\"
+CC=	cc
+CFLAGS=	-O -DPRIVDIR=\"${PRIVDIR}\"
 
 ${PROG}:	${OBJS}
 	${CC} ${LFLAGS} ${OBJS} -o $@
