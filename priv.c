@@ -2,7 +2,7 @@
  * priv  Run a command as superuser
  * by Ron Kuris, December 1988
  *
- * $Id: priv.c,v 1.2 1996/01/23 01:03:56 simonb Exp $
+ * $Id: priv.c,v 1.3 1996/02/23 14:33:33 simonb Exp $
  */
 /*
  *	access list added by Dan Busarow, DPC Systems, 11/22/91
@@ -18,13 +18,9 @@
  *	priv should be mode 4111, owned by root
  */
 
-#define USE_SYSLOG	/* log all attempts to syslog(3) */
-
 #include <stdio.h>
 #include <pwd.h>
-#ifdef USE_SYSLOG
-# include <syslog.h>
-#endif
+#include <syslog.h>
 
 #ifdef __svr4__	/* Solaris 2 */
 # define index strchr
@@ -77,16 +73,12 @@ int argc;
 		by the general public, authorized users will know how to
 		run it
 		***/
-#ifdef USE_SYSLOG
 		syslog(LOG_NOTICE, "%s: incorrect usage", lname);
-#endif
 		exit(ERREXIT);
 	}
 	if ((fp = fopen(PRIVLIST, "r")) == NULL) {
 		fprintf(stderr, "%s: Can't open database\n", prog);
-#ifdef USE_SYSLOG
 		syslog(LOG_NOTICE, "%s: can't open database", lname);
-#endif
 		exit(ERREXIT);
 	}
 	while (fgets(buffer, LONGESTNAME, fp) != NULL) {
@@ -109,9 +101,7 @@ int argc;
 				/* default, no restriction.  this user is
 				   now root so you better trust them! */
 				ok = 1;
-#ifdef USE_SYSLOG
 				syslog(LOG_NOTICE, "%s: full access", lname);
-#endif
 			}
 			else {
 				while(fgets(buffer, LONGESTNAME, fp) != NULL) {
@@ -121,7 +111,6 @@ int argc;
 						break;
 					}
 				}
-#ifdef USE_SYSLOG
 				if (ok) {
 					syslog(LOG_NOTICE,
 						"%s: command approved", lname);
@@ -130,7 +119,6 @@ int argc;
 					syslog(LOG_NOTICE,
 						"%s: command not valid", lname);
 				}
-#endif
 			}
 			if (!ok) {	 /* failed access list test */
 				fclose(fp);
@@ -138,10 +126,8 @@ int argc;
 			}
 #ifndef NEWPATH
 			if (getenv("PATH") == NULL) {
-#ifdef USE_SYSLOG
 				syslog(LOG_NOTICE, "%s: no path defined",
 					lname);
-#endif
 				fprintf(stderr,"%s: No path.\n", prog);
 				exit(ERREXIT);
 			}
@@ -168,10 +154,8 @@ int argc;
 			setuid(0);
 			setgid(0);
 			execvp(argv[1], argv+1);
-#ifdef USE_SYSLOG
 			syslog(LOG_NOTICE, "%s: couldn't execute program",
 				lname);
-#endif
 			fprintf(stderr,"%s: can't execute %s\n", prog, argv[1]);
 			exit(ERREXIT);
 		}
@@ -184,9 +168,7 @@ int argc;
 	   are not authorized to run it.
 	*/
 	fclose(fp);
-#ifdef USE_SYSLOG
 	syslog(LOG_NOTICE, "%s: failed authorization test", lname);
-#endif
 	exit(ERREXIT);
 	/* NOTREACHED */
 }
