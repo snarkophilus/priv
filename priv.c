@@ -1,4 +1,4 @@
-/*	$Id: priv.c,v 1.18 1996/07/31 07:23:35 lukem Exp $
+/*	$Id: priv.c,v 1.19 1996/08/08 06:41:56 lukem Exp $
  *
  *	priv	run a command as a given user
  *
@@ -19,7 +19,7 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.18 1996/07/31 07:23:35 lukem Exp $";
+static char rcsid[] = "$Id: priv.c,v 1.19 1996/08/08 06:41:56 lukem Exp $";
 #endif /* not lint */
 
 #include <stdio.h>
@@ -54,6 +54,10 @@ static char rcsid[] = "$Id: priv.c,v 1.18 1996/07/31 07:23:35 lukem Exp $";
 
 #ifdef ultrix
 char *strdup();
+char *strsep();
+#endif
+
+#ifdef __svr4__
 char *strsep();
 #endif
 
