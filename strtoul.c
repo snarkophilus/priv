@@ -44,7 +44,6 @@ static char *rcsid = "$NetBSD: strtoul.c,v 1.9 1996/07/20 01:00:57 jtc Exp $";
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include <stdlib.h>
 
 /*
  * Convert a string to an unsigned long integer.
