@@ -1,4 +1,4 @@
-/*	$Id$	*/
+/*	$Id: priv.h,v 1.1 1997/02/19 05:04:01 lukem Exp $	*/
 
 /*
  * Copyright (c) 1996, 1997 Werj. All rights reserved.
@@ -34,31 +34,62 @@
 #ifndef _PRIV_H
 #define _PRIV_H
 
+#include <config.h>
+
 #include <sys/types.h>
 #include <sys/param.h>
-#include <sys/time.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
 #include <errno.h>
 #include <grp.h>
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
 #include <pwd.h>
 #include <signal.h>
+#if defined __STDC__ || defined HAVE_STDARG_H
 #include <stdarg.h>
+#else
+#include <varargs.h>
+#endif
 #include <stdio.h>
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#ifdef HAVE_STRING_H
 #include <string.h>
+#else
+#include <strings.h>
+#endif
+#ifdef HAVE_STRINGLIST_H
 #include <stringlist.h>
+#else
+#include <mystringlist.h>
+#endif
+#ifdef HAVE_SYSLOG
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
+#else
+#include <sys/syslog.h>
+#endif
+#endif
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
-
-#ifndef PRIVDIR
-#define PRIVDIR		"/usr/local/etc/priv"	/* database directory */
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
 #endif
 
 #define DEFPATH		"/bin:/usr/bin"
-#define PATH_SU		"/bin/su"		/* path to "su" command */
 #define SYSLOGNAME	"priv"			/* name used with syslog */
 #define LOGBUFSIZ	2048 + 256		/* number of chars to log */
 #define MYNAMELEN	20			/* room for username+logname */
@@ -85,7 +116,6 @@
 
 char	*progname;
 
-
 int	 check_date(const char *);
 char	*concatstr(const char *, ...);
 char	*build_log_message(const char *, char **, const char *, unsigned int);
@@ -95,11 +125,26 @@ void	 splitpath(const char *, char **, char **);
 char	*which(const char *);
 char	*xstrdup(const char *);
 
-
+#ifndef HAVE_ERR
 void	err(int, const char *, ...);
 void	errx(int, const char *, ...);
-char   *strsep(char **, const char *);
 void	warn(const char *, ...);
 void	warnx(const char *, ...);
+#endif
+#ifndef HAVE_STRDUP
+char   *strdup(const char *);
+#endif
+#ifndef HAVE_STRSEP
+char   *strsep(char **, const char *);
+#endif
+#ifndef HAVE_STRERROR
+char   *strerror(int errnum);
+#endif
+#ifdef HAVE_STRSPN
+size_t  strspn(const char *s, const char *charset);
+#endif
+#ifdef HAVE_STRTOUL
+unsigned long strtoul(const char *nptr, char **endptr, int base);
+#endif
 
 #endif /* _PRIV_H */
