@@ -1,5 +1,3 @@
-/*	$Id: priv.c,v 1.36 2004/02/09 04:34:22 simonb Exp $	*/
-
 /*
  *	priv	run a command as a given user
  *
@@ -46,10 +44,6 @@
  *	substitute for handing out the root password, so I guess it
  *	should be a little bit helpful (but not too much :-).
  */
-
-#ifndef lint
-static char rcsid[] = "$Id: priv.c,v 1.36 2004/02/09 04:34:22 simonb Exp $";
-#endif /* not lint */
 
 #include <priv.h>
 

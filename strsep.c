@@ -1,4 +1,3 @@
-/*	 $Id: strsep.c,v 1.3 1997/03/27 10:13:18 lukem Exp $	*/
 /*-
  * Copyright (c) 1990 The Regents of the University of California.
  * All rights reserved.
@@ -31,10 +30,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#if !defined(lint)
-static char *rcsid = "$Id: strsep.c,v 1.3 1997/03/27 10:13:18 lukem Exp $";
-#endif /* !lint */
 
 #include <config.h>
 

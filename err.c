@@ -1,8 +1,4 @@
 /*
- * $Id: err.c,v 1.2 1997/03/27 10:13:18 lukem Exp $
- */
-
-/*
  * Copyright 1997 Luke Mewburn <lukem@netbsd.org>.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

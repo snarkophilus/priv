@@ -1,5 +1,3 @@
-/*	$Id: priv.h,v 1.3 1997/07/08 06:19:07 simonb Exp $	*/
-
 /*
  * Copyright (c) 1996, 1997 Simon Burge <simonb@telstra.com.au>.
  * All rights reserved.

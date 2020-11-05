@@ -31,10 +31,6 @@
  * SUCH DAMAGE.
  */
 
-#if !defined(lint)
-static char *rcsid = "$Id: stringlist.c,v 1.2 1997/03/27 10:13:18 lukem Exp $";
-#endif /* !lint */
-
 #include <priv.h>
 
 #ifndef HAVE_STRINGLIST_H
