@@ -87,6 +87,14 @@
 # endif
 #endif
 
+#ifdef HAVE_LOGIN_CAP_H
+# include <login_cap.h>
+#endif
+
+#ifdef HAVE_ERR_H
+# include <err.h>
+#endif
+
 #define DEFPATH		"/bin:/usr/bin"
 #define SYSLOGNAME	"priv"			/* name used with syslog */
 #define LOGBUFSIZ	2048 + 256		/* number of chars to log */
