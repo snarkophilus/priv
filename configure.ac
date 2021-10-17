@@ -42,6 +42,7 @@ AC_DEFINE_UNQUOTED(PATH_SU, ["$SU_PROG"],
 
 dnl Checks for libraries
 dnl ====================
+AC_SEARCH_LIBS(setusercontext, util)
 
 dnl Checks for header files
 dnl =======================
@@ -49,6 +50,7 @@ dnl =======================
 AC_CHECK_HEADERS_ONCE([
 	err.h
 	limits.h
+	login_cap.h
 	stdarg.h
 	stdlib.h
 	string.h

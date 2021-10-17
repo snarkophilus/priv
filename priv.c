@@ -312,6 +312,17 @@ main(int argc, char **argv, char **envp)
 	}
 
 	/* Set up the permissions */
+#ifdef HAVE_LOGIN_CAP_H
+	if (setusercontext(NULL, pw, pw->pw_uid, LOGIN_SETGROUP |
+	    LOGIN_SETPRIORITY | LOGIN_SETRESOURCES | LOGIN_SETUMASK |
+	    LOGIN_SETUSER) != 0) {
+		sverr = errno;
+		syslog(LOG_NOTICE, "%s: not ok: setusercontext failed: %m",
+		    myfullname);
+		errno = sverr;
+		err(EXIT_VAL, "setusercontext failed");
+	}
+#else
 	if (setgid(pw->pw_gid) < 0) {
 		sverr = errno;
 		syslog(LOG_NOTICE, "%s: not ok: setgid failed: %m", myfullname);
@@ -331,6 +342,7 @@ main(int argc, char **argv, char **envp)
 		errno = sverr;
 		err(EXIT_VAL, "setuid failed");
 	}
+#endif
 
 	/* Check for sym-link */
 	if (!(nflags & F_SYMLINK)) {
