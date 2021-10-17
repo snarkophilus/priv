@@ -364,8 +364,8 @@ main(int argc, char **argv, char **envp)
 	}
 
 	/* All's well so far, get ready to execute the command. */
-	syslog(LOG_INFO, build_log_message(myfullname, argv + 1, realprog,
-	    nflags));
+	syslog(LOG_INFO, "%s",
+	    build_log_message(myfullname, argv + 1, realprog, nflags));
 	envp = lockdown(nflags, realprog, pw, envp);
 	execve(realprog, argv + 1, envp);
 	sverr = errno;
