@@ -28,25 +28,36 @@ dnl   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 dnl   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(priv.c)
-AC_CONFIG_HEADER(config.h)
+AC_INIT
+AC_CONFIG_SRCDIR([priv.c])
+AC_CONFIG_HEADERS([config.h])
 
 dnl Checks for programs
 dnl ===================
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_PATH_PROG(SU_PROG, su)
-AC_DEFINE_UNQUOTED(PATH_SU, "$SU_PROG")
+AC_PATH_PROG(SU_PROG, [su])
+AC_DEFINE_UNQUOTED(PATH_SU, ["$SU_PROG"],
+	[The path to the su program on your system])
 
 dnl Checks for libraries
 dnl ====================
 
 dnl Checks for header files
 dnl =======================
-AC_HEADER_STDC
-AC_HEADER_TIME
-AC_CHECK_HEADERS(limits.h stdarg.h stdlib.h string.h stringlist.h syslog.h \
-	unistd.h sys/syslog.h)
+
+AC_CHECK_HEADERS_ONCE([
+	err.h
+	limits.h
+	stdarg.h
+	stdlib.h
+	string.h
+	stringlist.h
+	syslog.h
+	unistd.h
+	sys/syslog.h
+	sys/time.h
+])
 
 dnl Checks for typedefs, structures, and compiler characteristics
 dnl =============================================================
@@ -56,9 +67,9 @@ AC_STRUCT_TM
 
 dnl Checks for library functions
 dnl ============================
-AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(getcwd getwd getdtablesize syslog)
-AC_REPLACE_FUNCS(err strdup strsep strerror strspn strtoul)
+AC_CHECK_FUNCS([getcwd getwd getdtablesize syslog])
+AC_REPLACE_FUNCS([err strdup strsep strerror strspn strtoul])
 
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
