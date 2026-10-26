@@ -47,6 +47,8 @@
 
 #include <priv.h>
 
+char	*progname;
+
 /*
  * main --
  *	main entry point

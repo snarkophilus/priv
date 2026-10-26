@@ -118,7 +118,7 @@
 #define	S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
 #endif
 
-char	*progname;
+extern char	*progname;
 
 int	 check_date(const char *);
 char	*concatstr(const char *, ...);
